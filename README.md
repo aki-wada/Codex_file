@@ -24,6 +24,7 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 - `outputs` ディレクトリは自動作成されます。
 - `--html-report` を指定すると記述統計レポートHTMLを出力します（省略時は `<out-dir>/report.html`）。
 - プロット画像はHTMLに埋め込み、欠測/外れ値タブ表示、Stylerでテーブルをハイライトします。
+- `--alpha` で有意水準を指定（デフォルト0.05）。
 
 ### グループ別記述統計と効果量
 
@@ -31,6 +32,7 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 - `--effect-cols col1 col2 ...` を併用すると、multi-arm trial で全ペアの効果量と ANOVA/Tukey を出力します。
   - 数値列: 全ペアの Cohen's d (`effect_sizes.csv`)、ANOVA (`effect_anova.csv`)、Tukey HSD (`effect_tukey.csv`)
   - 2x2カテゴリ列: 全ペアのオッズ比 (`effect_sizes.csv`)
+  - 2群の場合: Welchのt検定と平均差CI (`tests_ttest.csv`)、カテゴリはカイ二乗検定 (`tests_chi2.csv`)
 
 ### Streamlit フロントエンド
 

@@ -221,6 +221,75 @@ def effect_sizes(
     return pd.DataFrame(pairwise_records), pd.DataFrame(anova_records), pd.DataFrame(tukey_records)
 
 
+def hypothesis_tests_numeric(
+    df: pd.DataFrame, group_col: str, outcome_cols: List[str], alpha: float = 0.05
+) -> pd.DataFrame:
+    """Welch's t-test for two groups with CI of mean difference."""
+    groups = [g for g in df[group_col].dropna().unique()]
+    if len(groups) != 2:
+        logger.info("Numeric tests require exactly 2 groups; found %s.", len(groups))
+        return pd.DataFrame()
+    g1, g2 = groups
+    res = []
+    for col in outcome_cols:
+        if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        s1 = df[df[group_col] == g1][col].dropna()
+        s2 = df[df[group_col] == g2][col].dropna()
+        if len(s1) < 2 or len(s2) < 2:
+            continue
+        t_stat, p_val = stats.ttest_ind(s1, s2, equal_var=False)
+        diff = s1.mean() - s2.mean()
+        # Welch-Satterthwaite DF
+        v1, v2 = s1.var(ddof=1), s2.var(ddof=1)
+        se = (v1 / len(s1) + v2 / len(s2)) ** 0.5
+        df_w = (v1 / len(s1) + v2 / len(s2)) ** 2 / ((v1**2) / ((len(s1) - 1) * (len(s1) ** 2)) + (v2**2) / ((len(s2) - 1) * (len(s2) ** 2)))
+        t_crit = stats.t.ppf(1 - alpha / 2, df_w) if se > 0 else float("nan")
+        ci_low, ci_high = diff - t_crit * se, diff + t_crit * se if se > 0 else (float("nan"), float("nan"))
+        res.append(
+            {
+                "variable": col,
+                "group_a": g1,
+                "group_b": g2,
+                "n_a": len(s1),
+                "n_b": len(s2),
+                "mean_diff": diff,
+                "ci_low": ci_low,
+                "ci_high": ci_high,
+                "p_value": p_val,
+                "test": "Welch t-test",
+            }
+        )
+    return pd.DataFrame(res)
+
+
+def hypothesis_tests_categorical(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> pd.DataFrame:
+    """Chi-square test for categorical outcomes vs group (all groups)."""
+    if len(df[group_col].dropna().unique()) < 2:
+        logger.info("Categorical tests need at least 2 groups.")
+        return pd.DataFrame()
+    res = []
+    for col in outcome_cols:
+        if col not in df.columns or pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        tab = pd.crosstab(df[group_col], df[col])
+        if tab.shape[0] < 2 or tab.shape[1] < 2:
+            continue
+        chi2, p_val, dof, _ = stats.chi2_contingency(tab)
+        res.append(
+            {
+                "variable": col,
+                "groups": tab.shape[0],
+                "categories": tab.shape[1],
+                "chi2": chi2,
+                "dof": dof,
+                "p_value": p_val,
+                "test": "Chi-square",
+            }
+        )
+    return pd.DataFrame(res)
+
+
 def render_table(
     df: Optional[pd.DataFrame],
     title: str,
@@ -261,6 +330,8 @@ def generate_html_report(
     anova_df: Optional[pd.DataFrame] = None,
     tukey_df: Optional[pd.DataFrame] = None,
     plot_paths: Optional[List[Path]] = None,
+    ttest_df: Optional[pd.DataFrame] = None,
+    chi2_df: Optional[pd.DataFrame] = None,
 ) -> None:
     """Write a simple HTML report with tables."""
     plot_html = ""
@@ -398,6 +469,8 @@ def generate_html_report(
     {f'<div class="section">{render_table(effect_df, "効果量 (ペアワイズ)")}</div>' if effect_df is not None else ""}
     {f'<div class="section">{render_table(anova_df, "ANOVA")}</div>' if anova_df is not None else ""}
     {f'<div class="section">{render_table(tukey_df, "Tukey HSD")}</div>' if tukey_df is not None else ""}
+    {f'<div class="section">{render_table(ttest_df, "t検定 (2群)", highlight_cols=["p_value"] )}</div>' if ttest_df is not None else ""}
+    {f'<div class="section">{render_table(chi2_df, "カイ二乗検定", highlight_cols=["p_value"] )}</div>' if chi2_df is not None else ""}
   </div>
   <script>
     const tabs = document.querySelectorAll('.tab-buttons button');
@@ -490,6 +563,12 @@ def main():
         help="Outcome columns to compute effect sizes (numeric: Cohen's d, categorical binary: odds ratio).",
     )
     parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.05,
+        help="Significance level for confidence intervals and tests.",
+    )
+    parser.add_argument(
         "--html-report",
         type=Path,
         help="Path to save HTML report (defaults to <out-dir>/report.html).",
@@ -544,6 +623,8 @@ def main():
     eff_df: Optional[pd.DataFrame] = None
     anova_df: Optional[pd.DataFrame] = None
     tukey_df: Optional[pd.DataFrame] = None
+    ttest_df: Optional[pd.DataFrame] = None
+    chi2_df: Optional[pd.DataFrame] = None
 
     if args.group_col:
         try:
@@ -573,6 +654,17 @@ def main():
                 if tukey_df is not None and not tukey_df.empty:
                     tukey_df.to_csv(tukey_path, index=False)
                     logger.info("Saved Tukey HSD: %s", tukey_path)
+                # Hypothesis tests (2-group Welch t, chi-square)
+                ttest_df = hypothesis_tests_numeric(df, args.group_col, args.effect_cols, alpha=args.alpha)
+                chi2_df = hypothesis_tests_categorical(df, args.group_col, args.effect_cols)
+                if ttest_df is not None and not ttest_df.empty:
+                    ttest_path = out_dir / "tests_ttest.csv"
+                    ttest_df.to_csv(ttest_path, index=False)
+                    logger.info("Saved t-tests: %s", ttest_path)
+                if chi2_df is not None and not chi2_df.empty:
+                    chi2_path = out_dir / "tests_chi2.csv"
+                    chi2_df.to_csv(chi2_path, index=False)
+                    logger.info("Saved chi-square tests: %s", chi2_path)
         except KeyError as e:
             logger.error(str(e))
 
@@ -591,6 +683,8 @@ def main():
         anova_df,
         tukey_df,
         plot_paths,
+        ttest_df,
+        chi2_df,
     )
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
