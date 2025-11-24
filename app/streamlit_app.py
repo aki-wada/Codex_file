@@ -19,7 +19,77 @@ from main import (
 
 
 st.set_page_config(page_title="MedStats Assist", layout="wide")
-st.title("医療統計アシスト - 記述統計デモ")
+
+# Mockup-like styling
+CSS = """
+<style>
+:root {
+  --bg: #0f1729;
+  --panel: #111b2e;
+  --card: #1b2a44;
+  --accent: #4ade80;
+  --accent-2: #22d3ee;
+  --muted: #9fb3c8;
+  --text: #e7ecf5;
+  --border: #1f2f4c;
+}
+body, .main, .block-container {
+  background: radial-gradient(circle at 20% 20%, #14213d 0, #0f1729 45%), radial-gradient(circle at 80% 0, #0e7490 0, #0f1729 40%) !important;
+  color: var(--text) !important;
+}
+div.stButton > button {
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.22), rgba(34, 211, 238, 0.18));
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #0a1525;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--muted);
+  font-size: 13px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.spark {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.18), transparent 45%);
+  pointer-events: none;
+}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
+      <div>
+        <h2 style="margin:0;">医療統計アシスト - 記述統計デモ</h2>
+        <div class="pill">モックアップ風UI / CSVアップロードで集計</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="http://localhost:8504" target="_blank" style="text-decoration:none;" class="pill">Streamlitトップ</a>
+        <a href="../outputs/report.html" target="_blank" style="text-decoration:none;" class="pill">最新レポート</a>
+        <a href="../frontend/index.html" target="_blank" style="text-decoration:none;" class="pill">フロントページ</a>
+        <a href="../work/manual.md" target="_blank" style="text-decoration:none;" class="pill">操作マニュアル</a>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 uploaded = st.file_uploader("CSV/TSV をアップロード", type=["csv", "tsv"])
 max_plots = st.slider("最大プロット数", min_value=1, max_value=12, value=6)
@@ -54,9 +124,36 @@ if uploaded:
     plot_paths = plot_numeric(df, outputs_dir, max_plots=max_plots)
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("数値列", len(num_summary))
-    col2.metric("カテゴリ列", len(cat_summary))
-    col3.metric("総欠測", miss_df["missing_count"].sum())
+    col1.markdown(
+        f"""
+        <div class="card">
+          <div class="spark"></div>
+          <small>数値列</small>
+          <div style="font-size:24px;font-weight:700;">{len(num_summary)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col2.markdown(
+        f"""
+        <div class="card">
+          <div class="spark"></div>
+          <small>カテゴリ列</small>
+          <div style="font-size:24px;font-weight:700;">{len(cat_summary)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col3.markdown(
+        f"""
+        <div class="card">
+          <div class="spark"></div>
+          <small>総欠測</small>
+          <div style="font-size:24px;font-weight:700;">{miss_df["missing_count"].sum()}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.subheader("数値列サマリー")
     st.dataframe(num_summary, use_container_width=True)
