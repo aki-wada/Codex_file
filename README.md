@@ -29,6 +29,12 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 python app/main.py data/sample_medical.csv --out-dir outputs
 ```
 
+欠測を含む例が必要な場合は `data/sample_medical_incomplete.csv` を利用できます。
+
+```bash
+python app/main.py data/sample_medical_incomplete.csv --out-dir outputs
+```
+
 ## 次の拡張候補
 
 - 欠測・外れ値検知のレポート化
