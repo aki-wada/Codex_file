@@ -332,6 +332,7 @@ def generate_html_report(
     plot_paths: Optional[List[Path]] = None,
     ttest_df: Optional[pd.DataFrame] = None,
     chi2_df: Optional[pd.DataFrame] = None,
+    alpha: float = 0.05,
 ) -> None:
     """Write a simple HTML report with tables."""
     plot_html = ""
@@ -359,6 +360,31 @@ def generate_html_report(
       </div>
     </div>
     """
+
+    # Simple textual insights
+    def insights_block() -> str:
+        insights = []
+        insights.append(f"行数: {len(preview_df)} / 数値列: {len(num_summary)} / カテゴリ列: {len(cat_summary)}")
+        if not miss_df.empty:
+            total_miss = miss_df["missing_count"].sum()
+            insights.append(f"総欠測: {total_miss}")
+        if not outlier_df.empty and "outlier_count" in outlier_df.columns:
+            total_out = outlier_df["outlier_count"].sum()
+            insights.append(f"外れ値検知: {total_out} 件 (IQR)")
+        if ttest_df is not None and not ttest_df.empty:
+            sig = ttest_df[ttest_df["p_value"] < alpha]
+            if not sig.empty:
+                vars_sig = ", ".join(sig["variable"].astype(str).tolist())
+                insights.append(f"t検定で有意 (p<{alpha}): {vars_sig}")
+        if chi2_df is not None and not chi2_df.empty:
+            sig = chi2_df[chi2_df["p_value"] < alpha]
+            if not sig.empty:
+                vars_sig = ", ".join(sig["variable"].astype(str).tolist())
+                insights.append(f"カイ二乗で有意 (p<{alpha}): {vars_sig}")
+        if not insights:
+            insights.append("特記事項なし")
+        items = "".join(f"<li>{i}</li>" for i in insights)
+        return f"<ul>{items}</ul>"
 
     html = f"""
 <!DOCTYPE html>
@@ -456,6 +482,11 @@ def generate_html_report(
       <div class="card"><div class="spark"></div><small>数値列</small><div style="font-size:24px;font-weight:600;">{len(num_summary)}</div><small>describe()</small></div>
       <div class="card"><div class="spark"></div><small>カテゴリ列</small><div style="font-size:24px;font-weight:600;">{len(cat_summary)}</div><small>頻度・ユニーク数</small></div>
       <div class="card"><div class="spark"></div><small>総欠測</small><div style="font-size:24px;font-weight:600;">{miss_df['missing_count'].sum() if not miss_df.empty else 0}</div><small>missing_count 合計</small></div>
+    </div>
+
+    <div class="section">
+      <h2>簡易サマリー</h2>
+      {insights_block()}
     </div>
 
     <div class="section">{render_table(preview_df.head(10), "データプレビュー (先頭10行)")}</div>
@@ -685,6 +716,7 @@ def main():
         plot_paths,
         ttest_df,
         chi2_df,
+        alpha=args.alpha,
     )
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
