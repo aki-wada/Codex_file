@@ -35,6 +35,11 @@ python app/main.py data/sample_medical.csv --out-dir outputs
 python app/main.py data/sample_medical_incomplete.csv --out-dir outputs
 ```
 
+追加サンプルデータ:
+- `data/survival_analysis_data.csv` … 生存解析用 (event_time_months, event_observed など)
+- `data/patient_outcomes.csv` … バイタル/血糖・再入院・死亡アウトカム
+- `data/clinical_trial_data.csv` … 臨床試験の多腕データ (placebo/low/high)
+
 ## 次の拡張候補
 
 - 欠測・外れ値検知のレポート化

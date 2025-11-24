@@ -1,0 +1,16 @@
+patient_id,group,age,sex,start_date,event_time_months,event_observed,stage,biomarker,treatment_line
+S001,control,67,M,2022-01-15,8.4,1,II,12.3,1
+S002,intervention,59,F,2022-01-20,12.0,0,III,8.7,1
+S003,control,72,F,2022-02-05,5.6,1,II,15.1,2
+S004,intervention,64,M,2022-02-12,14.2,0,III,10.9,1
+S005,control,70,M,2022-02-25,6.1,1,IV,18.4,3
+S006,intervention,61,F,2022-03-04,11.7,0,II,9.5,1
+S007,control,69,F,2022-03-15,9.8,1,III,13.2,2
+S008,intervention,58,M,2022-03-20,10.5,0,II,7.8,1
+S009,control,73,M,2022-04-02,4.9,1,IV,19.0,3
+S010,intervention,62,F,2022-04-10,13.3,0,III,11.1,1
+S011,control,68,F,2022-04-22,7.4,1,II,14.6,2
+S012,intervention,60,M,2022-05-01,9.1,0,II,8.1,1
+S013,control,71,M,2022-05-11,5.2,1,IV,20.3,3
+S014,intervention,63,F,2022-05-19,12.6,0,III,9.9,1
+S015,control,74,F,2022-06-01,3.8,1,IV,21.5,3
