@@ -23,6 +23,13 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 - 数値列のヒストグラム+ボックスプロットを最大6列までPNGで保存します（`--max-plots` で変更）。
 - `outputs` ディレクトリは自動作成されます。
 
+### グループ別記述統計と効果量
+
+- `--group-col <column>` を指定すると、`group_numeric_summary.csv` と `group_categorical_summary.csv` を出力します。
+- `--effect-cols col1 col2 ...` を併用すると、2群の場合に以下を `effect_sizes.csv` へ出力します:
+  - 数値列: Cohen's d
+  - 2x2カテゴリ列: オッズ比
+
 ### サンプルデータ
 
 `data/sample_medical.csv` を同梱しています。試す場合:

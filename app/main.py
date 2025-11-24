@@ -1,7 +1,7 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -102,6 +102,78 @@ def outlier_summary(
     return summary_df, rows_df
 
 
+def cohen_d(series_a: pd.Series, series_b: pd.Series) -> Optional[float]:
+    """Compute Cohen's d for two samples. Returns None if insufficient data."""
+    a = series_a.dropna()
+    b = series_b.dropna()
+    if len(a) < 2 or len(b) < 2:
+        return None
+    diff = a.mean() - b.mean()
+    pooled_sd = (((len(a) - 1) * a.std(ddof=1) ** 2 + (len(b) - 1) * b.std(ddof=1) ** 2) / (len(a) + len(b) - 2)) ** 0.5
+    if pooled_sd == 0:
+        return None
+    return diff / pooled_sd
+
+
+def odds_ratio_from_table(table: pd.Series) -> Optional[float]:
+    """Compute simple odds ratio for binary outcome cross-tab (2x2)."""
+    if table.shape != (2, 2):
+        return None
+    (a, b), (c, d) = table.values
+    # Avoid division by zero
+    if b == 0 or c == 0 or d == 0:
+        return None
+    return (a * d) / (b * c)
+
+
+def group_summaries(df: pd.DataFrame, group_col: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Return numeric and categorical summaries by group."""
+    if group_col not in df.columns:
+        raise KeyError(f"Group column not found: {group_col}")
+    grouped = df.groupby(group_col)
+    num_cols = df.select_dtypes(include="number").columns
+    cat_cols = df.select_dtypes(exclude="number").columns
+
+    num_summary = grouped[num_cols].describe().unstack(level=0).T if len(num_cols) else pd.DataFrame()
+    cat_summary = (
+        grouped[cat_cols].agg(["count", "nunique"]).unstack(level=0).T if len(cat_cols) else pd.DataFrame()
+    )
+    return num_summary, cat_summary
+
+
+def effect_sizes(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> pd.DataFrame:
+    """Compute simple effect sizes for two-group comparisons."""
+    groups = df[group_col].dropna().unique()
+    if len(groups) != 2:
+        logger.info("Effect sizes limited to 2 groups; found %s groups, skipping.", len(groups))
+        return pd.DataFrame()
+    g1, g2 = groups
+    df1 = df[df[group_col] == g1]
+    df2 = df[df[group_col] == g2]
+
+    records = []
+    for col in outcome_cols:
+        if col not in df.columns:
+            continue
+        if pd.api.types.is_numeric_dtype(df[col]):
+            d = cohen_d(df1[col], df2[col])
+            records.append({"variable": col, "type": "numeric", "cohens_d": d, "group_a": g1, "group_b": g2})
+        else:
+            tab = pd.crosstab(df[group_col], df[col])
+            if tab.shape == (2, 2):
+                or_val = odds_ratio_from_table(tab)
+                records.append(
+                    {
+                        "variable": col,
+                        "type": "categorical",
+                        "odds_ratio": or_val,
+                        "group_a": g1,
+                        "group_b": g2,
+                    }
+                )
+    return pd.DataFrame(records)
+
+
 def plot_numeric(df: pd.DataFrame, output_dir: Path, max_plots: int = 6) -> List[Path]:
     """Create histograms and boxplots for numeric columns (capped)."""
     numeric_cols = list(df.select_dtypes(include="number").columns)
@@ -162,6 +234,17 @@ def main():
         default=100,
         help="Maximum number of outlier rows to export across columns.",
     )
+    parser.add_argument(
+        "--group-col",
+        type=str,
+        help="Column name for group comparison (expects two groups for effect sizes).",
+    )
+    parser.add_argument(
+        "--effect-cols",
+        type=str,
+        nargs="*",
+        help="Outcome columns to compute effect sizes (numeric: Cohen's d, categorical binary: odds ratio).",
+    )
     args = parser.parse_args()
 
     out_dir = ensure_output_dir(args.out_dir)
@@ -205,6 +288,28 @@ def main():
         logger.info("Saved outlier rows (sample): %s", outlier_rows_path)
     else:
         logger.info("No outlier rows detected (or none within sample limit).")
+
+    if args.group_col:
+        try:
+            grp_num, grp_cat = group_summaries(df, args.group_col)
+            grp_num_path = out_dir / "group_numeric_summary.csv"
+            grp_cat_path = out_dir / "group_categorical_summary.csv"
+            if not grp_num.empty:
+                grp_num.to_csv(grp_num_path)
+                logger.info("Saved group numeric summary: %s", grp_num_path)
+            if not grp_cat.empty:
+                grp_cat.to_csv(grp_cat_path)
+                logger.info("Saved group categorical summary: %s", grp_cat_path)
+            if args.effect_cols:
+                eff_df = effect_sizes(df, args.group_col, args.effect_cols)
+                eff_path = out_dir / "effect_sizes.csv"
+                if not eff_df.empty:
+                    eff_df.to_csv(eff_path, index=False)
+                    logger.info("Saved effect sizes: %s", eff_path)
+                else:
+                    logger.info("No effect sizes computed (check group count or columns).")
+        except KeyError as e:
+            logger.error(str(e))
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
 
