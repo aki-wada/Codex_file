@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedStats Assist - Front</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1729;
+      --panel: #111b2e;
+      --card: #1b2a44;
+      --accent: #4ade80;
+      --accent-2: #22d3ee;
+      --muted: #9fb3c8;
+      --text: #e7ecf5;
+      --border: #1f2f4c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      background: radial-gradient(circle at 20% 20%, #14213d 0, #0f1729 45%), radial-gradient(circle at 80% 0, #0e7490 0, #0f1729 40%);
+      color: var(--text);
+      font-family: "IBM Plex Sans", "Space Grotesk", system-ui, -apple-system, sans-serif;
+    }
+    aside {
+      padding: 28px 24px;
+      background: linear-gradient(180deg, #0c1222 0%, #0f1729 40%, #0c1222 100%);
+      border-right: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .brand .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
+    }
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    nav a {
+      padding: 12px 14px;
+      border-radius: 10px;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      transition: all 0.18s ease;
+      font-weight: 500;
+    }
+    nav a:hover {
+      background: rgba(34, 211, 238, 0.08);
+      border-color: var(--border);
+    }
+    nav a.active {
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.18), rgba(34, 211, 238, 0.18));
+      border-color: rgba(34, 211, 238, 0.35);
+    }
+    main {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .title h1 {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: 0.01em;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid rgba(34, 211, 238, 0.3);
+    }
+    .btn {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(74, 222, 128, 0.4);
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.22), rgba(34, 211, 238, 0.18));
+      color: #0a1525;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(34, 211, 238, 0.18); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card small { color: var(--muted); }
+    .metric { font-size: 24px; font-weight: 600; }
+    .spark {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.18), transparent 45%);
+      pointer-events: none;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .chart {
+      height: 200px;
+      border-radius: 12px;
+      border: 1px dashed rgba(159, 179, 200, 0.4);
+      background: repeating-linear-gradient(45deg, rgba(159, 179, 200, 0.05), rgba(159, 179, 200, 0.05) 10px, transparent 10px, transparent 20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      margin-top: 8px;
+    }
+    @media (max-width: 900px) {
+      body { grid-template-columns: 1fr; }
+      aside { position: sticky; top: 0; z-index: 2; height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <div class="dot"></div>
+      <span>MedStats Assist</span>
+    </div>
+    <nav>
+      <a href="#" class="active">ダッシュボード</a>
+      <a href="../outputs/report.html" target="_blank">最新レポート</a>
+      <a href="http://localhost:8504" target="_blank">Streamlitアプリ</a>
+      <a href="../work/manual.md" target="_blank">操作マニュアル</a>
+      <a href="../work/spec.md" target="_blank">仕様書</a>
+    </nav>
+  </aside>
+  <main>
+    <div class="top-bar">
+      <div class="title">
+        <h1>データ取込と記述統計フロント</h1>
+        <div class="pill">モックアップ実装版 / レポートとアプリへの導線</div>
+      </div>
+      <a class="btn" href="../outputs/report.html" target="_blank">最新レポートを開く</a>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="spark"></div>
+        <small>次のステップ</small>
+        <div class="metric">CSVをアップ</div>
+        <small>Streamlitでプレビュー・集計</small>
+      </div>
+      <div class="card">
+        <div class="spark"></div>
+        <small>結果を確認</small>
+        <div class="metric">HTMLレポート</div>
+        <small>記述統計・効果量・外れ値</small>
+      </div>
+      <div class="card">
+        <div class="spark"></div>
+        <small>実行方法</small>
+        <div class="metric">CLI + UI</div>
+        <small>どちらも同じデータ処理基盤</small>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <strong>1. Streamlitで試す</strong>
+        <p>ローカルでポート <code>8504</code> を開いてください。</p>
+        <a class="btn" href="http://localhost:8504" target="_blank">Streamlitを開く</a>
+      </div>
+      <div>
+        <strong>2. CLIで実行</strong>
+        <p>ターミナルで以下を実行（例: clinical_trial_data.csv）。</p>
+        <div class="chart" style="height: 160px; font-size: 13px; text-align:left; white-space:pre-line;">
+./.venv/bin/python app/main.py data/clinical_trial_data.csv \
+  --out-dir outputs \
+  --group-col arm \
+  --effect-cols baseline_score week4_score week8_score ae_grade \
+  --html-report outputs/report.html
+        </div>
+      </div>
+      <div>
+        <strong>3. マニュアルを見る</strong>
+        <p><a class="btn" href="../work/manual.md" target="_blank">操作マニュアル</a></p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <strong>レポート</strong>
+        <p>最新の生成物を開きます。</p>
+        <a class="btn" href="../outputs/report.html" target="_blank">report.html を開く</a>
+      </div>
+      <div>
+        <strong>Mockup</strong>
+        <p>初期デザイン案（static）。</p>
+        <a class="btn" href="../work/mockup.html" target="_blank">mockup.html を開く</a>
+      </div>
+      <div>
+        <strong>仕様</strong>
+        <p>仕様書を参照。</p>
+        <a class="btn" href="../work/spec.md" target="_blank">spec.md を開く</a>
+      </div>
+    </div>
+
+    <footer>このフロントはモックアップの見た目を踏襲した簡易版です。実データ処理は CLI / Streamlit で行います。</footer>
+  </main>
+</body>
+</html>

@@ -42,6 +42,11 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 デフォルトポートを 8504 に設定しています（`.streamlit/config.toml`）。  
 ブラウザで http://localhost:8504 を開き、CSV/TSVをアップロードして操作してください。
 
+### フロントページ（モックアップ実装版）
+
+`frontend/index.html` からレポートやStreamlit、マニュアルへのリンクをまとめて開けます。  
+`outputs/report.html` が生成済みであれば「最新レポートを開く」リンクで閲覧できます。
+
 ### サンプルデータ
 
 `data/sample_medical.csv` を同梱しています。試す場合:
