@@ -44,6 +44,64 @@ def summarize(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     return num_summary, cat_summary
 
 
+def missing_summary(df: pd.DataFrame) -> pd.DataFrame:
+    total = len(df)
+    counts = df.isna().sum()
+    pct = counts / total * 100 if total else 0
+    summary = pd.DataFrame({"missing_count": counts, "missing_pct": pct})
+    return summary
+
+
+def outlier_summary(
+    df: pd.DataFrame, max_rows: int = 100
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Detect outliers via IQR fences. Returns per-column summary and sample rows."""
+    numeric_cols = df.select_dtypes(include="number").columns
+    summary_records = []
+    row_records = []
+
+    for col in numeric_cols:
+        series = df[col].dropna()
+        if series.empty:
+            continue
+        q1 = series.quantile(0.25)
+        q3 = series.quantile(0.75)
+        iqr = q3 - q1
+        lower = q1 - 1.5 * iqr
+        upper = q3 + 1.5 * iqr
+        mask = (df[col] < lower) | (df[col] > upper)
+        count = mask.sum()
+        pct = count / len(df) * 100 if len(df) else 0
+        summary_records.append(
+            {
+                "column": col,
+                "q1": q1,
+                "q3": q3,
+                "iqr": iqr,
+                "lower_fence": lower,
+                "upper_fence": upper,
+                "outlier_count": count,
+                "outlier_pct": pct,
+            }
+        )
+        if count:
+            limited = mask[mask].head(max_rows)
+            for idx in limited.index:
+                row_records.append(
+                    {
+                        "index": idx,
+                        "column": col,
+                        "value": df.at[idx, col],
+                        "lower_fence": lower,
+                        "upper_fence": upper,
+                    }
+                )
+
+    summary_df = pd.DataFrame(summary_records)
+    rows_df = pd.DataFrame(row_records)
+    return summary_df, rows_df
+
+
 def plot_numeric(df: pd.DataFrame, output_dir: Path, max_plots: int = 6) -> List[Path]:
     """Create histograms and boxplots for numeric columns (capped)."""
     numeric_cols = list(df.select_dtypes(include="number").columns)
@@ -98,6 +156,12 @@ def main():
         default=6,
         help="Maximum number of numeric columns to plot.",
     )
+    parser.add_argument(
+        "--max-outlier-rows",
+        type=int,
+        default=100,
+        help="Maximum number of outlier rows to export across columns.",
+    )
     args = parser.parse_args()
 
     out_dir = ensure_output_dir(args.out_dir)
@@ -122,6 +186,25 @@ def main():
         logger.info("No categorical columns to summarize.")
 
     plot_numeric(df, out_dir, max_plots=args.max_plots)
+
+    miss_df = missing_summary(df)
+    miss_path = out_dir / "missing_summary.csv"
+    miss_df.to_csv(miss_path)
+    logger.info("Saved missing summary: %s", miss_path)
+
+    outlier_df, outlier_rows = outlier_summary(df, max_rows=args.max_outlier_rows)
+    outlier_sum_path = out_dir / "outlier_summary.csv"
+    outlier_rows_path = out_dir / "outlier_rows.csv"
+    if not outlier_df.empty:
+        outlier_df.to_csv(outlier_sum_path, index=False)
+        logger.info("Saved outlier summary: %s", outlier_sum_path)
+    else:
+        logger.info("No numeric columns for outlier detection.")
+    if not outlier_rows.empty:
+        outlier_rows.to_csv(outlier_rows_path, index=False)
+        logger.info("Saved outlier rows (sample): %s", outlier_rows_path)
+    else:
+        logger.info("No outlier rows detected (or none within sample limit).")
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
 

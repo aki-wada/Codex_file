@@ -18,6 +18,8 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 ```
 
 - `summary_numeric.csv` と `summary_categorical.csv` を `--out-dir` に保存します。
+- 欠測の数・率を `missing_summary.csv` に保存します。
+- 数値列の外れ値検知(IQR)を `outlier_summary.csv` と `outlier_rows.csv` に保存します（`--max-outlier-rows` でサンプル行上限を指定）。
 - 数値列のヒストグラム+ボックスプロットを最大6列までPNGで保存します（`--max-plots` で変更）。
 - `outputs` ディレクトリは自動作成されます。
 
