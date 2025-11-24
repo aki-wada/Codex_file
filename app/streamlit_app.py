@@ -163,6 +163,9 @@ if view == "解析":
 
     uploaded = st.file_uploader("CSV/TSV をアップロード", type=["csv", "tsv"])
     step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
+    num_summary = cat_summary = miss_df = out_sum = out_rows = None
+    grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
+    plot_paths = []
 
     if uploaded:
         if delimiter == "自動判定":
