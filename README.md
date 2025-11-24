@@ -33,6 +33,10 @@ python app/main.py <path/to/data.csv> --out-dir outputs
   - 数値列: 全ペアの Cohen's d (`effect_sizes.csv`)、ANOVA (`effect_anova.csv`)、Tukey HSD (`effect_tukey.csv`)
   - 2x2カテゴリ列: 全ペアのオッズ比 (`effect_sizes.csv`)
   - 2群の場合: Welchのt検定と平均差CI (`tests_ttest.csv`)、カテゴリはカイ二乗検定 (`tests_chi2.csv`)
+- 前処理オプション:
+  - `--impute-numeric {none,mean,median}` / `--impute-categorical {none,mode}`
+  - `--drop-missing-thresh` 行を残すための非欠測割合 (例: 0.8 で 80%以上欠測でない行のみ残す)
+  - 前処理後データを `<out-dir>/cleaned.csv` に保存（`--cleaned-csv`で変更可）
 
 ### Streamlit フロントエンド
 
@@ -44,7 +48,8 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 デフォルトポートを 8504 に設定しています（`.streamlit/config.toml`）。  
 ブラウザで http://localhost:8504 を開き、CSV/TSVをアップロードして操作してください。
 - 区切り文字（自動/カンマ/タブ/セミコロン）と文字コード（utf-8/shift_jis）を選択可能。
-- プレビュー行数やプロット対象の数値列を選んで表示できます。
+- プレビュー行数やプロット対象の数値列を選択可。
+- 前処理オプション（欠測のドロップ割合、数値の平均/中央値補完、カテゴリの最頻補完）を指定可。
 
 ### フロントページ（モックアップ実装版）
 

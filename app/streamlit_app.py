@@ -118,6 +118,9 @@ encoding = st.sidebar.selectbox("文字コード", ["utf-8", "shift_jis"], index
 preview_rows = st.sidebar.slider("プレビュー行数", min_value=5, max_value=20, value=10)
 max_plots = st.slider("最大プロット数", min_value=1, max_value=12, value=6)
 max_outlier_rows = st.slider("外れ値サンプル行の上限", min_value=10, max_value=200, value=100, step=10)
+impute_numeric = st.sidebar.selectbox("数値の欠測処理", ["none", "mean", "median"], index=0)
+impute_categorical = st.sidebar.selectbox("カテゴリの欠測処理", ["none", "mode"], index=0)
+drop_thresh = st.sidebar.slider("行を残すための非欠測割合", min_value=0.5, max_value=1.0, value=1.0, step=0.05)
 
 if uploaded:
     if delimiter == "自動判定":
@@ -133,6 +136,19 @@ if uploaded:
     except Exception as e:
         st.error(f"読み込みに失敗しました: {e}")
         st.stop()
+
+    # Preprocess: drop then impute
+    df, preproc_info = preprocess_df(
+        df,
+        impute_numeric=impute_numeric,
+        impute_categorical=impute_categorical,
+        drop_missing_thresh=drop_thresh,
+    )
+    st.info(
+        f"前処理: dropped_rows={preproc_info.get('dropped_rows',0)}, "
+        f"impute_numeric={preproc_info.get('imputed_numeric')}, "
+        f"impute_categorical={preproc_info.get('imputed_categorical')}"
+    )
     st.success(f"読み込み完了: {df.shape[0]} 行 x {df.shape[1]} 列")
 
     group_col = st.selectbox("グループ列（効果量/グループ別集計に使用）", options=["(なし)"] + list(df.columns))

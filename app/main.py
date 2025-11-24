@@ -27,6 +27,48 @@ def ensure_matplotlib_config(base_dir: Path) -> None:
     os.environ.setdefault("MPLCONFIGDIR", str(target))
 
 
+def preprocess_df(
+    df: pd.DataFrame,
+    impute_numeric: str = "none",
+    impute_categorical: str = "none",
+    drop_missing_thresh: float = 1.0,
+) -> Tuple[pd.DataFrame, dict]:
+    """Handle missing data: drop rows over threshold, then impute."""
+    info = {}
+    processed = df.copy()
+    # Drop rows with missing fraction > (1 - drop_missing_thresh)?
+    # Here, thresh is fraction of non-missing required.
+    if drop_missing_thresh < 1.0:
+        req_non_missing = int(processed.shape[1] * drop_missing_thresh)
+        before = len(processed)
+        processed = processed.dropna(thresh=req_non_missing)
+        info["dropped_rows"] = before - len(processed)
+    else:
+        info["dropped_rows"] = 0
+
+    num_cols = processed.select_dtypes(include="number").columns
+    cat_cols = processed.select_dtypes(exclude="number").columns
+
+    if impute_numeric in {"mean", "median"} and len(num_cols):
+        if impute_numeric == "mean":
+            fills = processed[num_cols].mean()
+        else:
+            fills = processed[num_cols].median()
+        processed[num_cols] = processed[num_cols].fillna(fills)
+        info["imputed_numeric"] = impute_numeric
+    else:
+        info["imputed_numeric"] = "none"
+
+    if impute_categorical == "mode" and len(cat_cols):
+        modes = processed[cat_cols].mode().iloc[0]
+        processed[cat_cols] = processed[cat_cols].fillna(modes)
+        info["imputed_categorical"] = "mode"
+    else:
+        info["imputed_categorical"] = "none"
+
+    return processed, info
+
+
 def read_csv(input_path: Path) -> pd.DataFrame:
     logger.info("Reading data from %s", input_path)
     if not input_path.exists():
@@ -588,6 +630,31 @@ def main():
         help="Maximum number of outlier rows to export across columns.",
     )
     parser.add_argument(
+        "--impute-numeric",
+        type=str,
+        choices=["none", "mean", "median"],
+        default="none",
+        help="Imputation for numeric columns.",
+    )
+    parser.add_argument(
+        "--impute-categorical",
+        type=str,
+        choices=["none", "mode"],
+        default="none",
+        help="Imputation for categorical columns.",
+    )
+    parser.add_argument(
+        "--drop-missing-thresh",
+        type=float,
+        default=1.0,
+        help="Required non-missing fraction per row (e.g., 0.8 keeps rows with >=80% non-missing).",
+    )
+    parser.add_argument(
+        "--cleaned-csv",
+        type=Path,
+        help="Path to save preprocessed CSV (defaults to <out-dir>/cleaned.csv).",
+    )
+    parser.add_argument(
         "--group-col",
         type=str,
         help="Column name for group comparison (expects two groups for effect sizes).",
@@ -613,7 +680,22 @@ def main():
 
     out_dir = ensure_output_dir(args.out_dir)
     ensure_matplotlib_config(out_dir)
-    df = read_csv(args.csv_path)
+    df_raw = read_csv(args.csv_path)
+    df, preproc_info = preprocess_df(
+        df_raw,
+        impute_numeric=args.impute_numeric,
+        impute_categorical=args.impute_categorical,
+        drop_missing_thresh=args.drop_missing_thresh,
+    )
+    cleaned_path = args.cleaned_csv or (out_dir / "cleaned.csv")
+    df.to_csv(cleaned_path, index=False)
+    logger.info(
+        "Preprocessing: dropped_rows=%s, impute_numeric=%s, impute_categorical=%s, saved=%s",
+        preproc_info.get("dropped_rows", 0),
+        preproc_info.get("imputed_numeric"),
+        preproc_info.get("imputed_categorical"),
+        cleaned_path,
+    )
 
     logger.info("Preview:\n%s", preview(df))
 
