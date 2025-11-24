@@ -1,11 +1,16 @@
 import argparse
+import base64
 import logging
+import os
+from itertools import combinations
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from scipy import stats
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 
 logging.basicConfig(
@@ -13,6 +18,13 @@ logging.basicConfig(
     format="%(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def ensure_matplotlib_config(base_dir: Path) -> None:
+    """Ensure Matplotlib uses a writable config dir to avoid cache warnings."""
+    target = base_dir / ".mplconfig"
+    target.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(target))
 
 
 def read_csv(input_path: Path) -> pd.DataFrame:
@@ -141,46 +153,98 @@ def group_summaries(df: pd.DataFrame, group_col: str) -> Tuple[pd.DataFrame, pd.
     return num_summary, cat_summary
 
 
-def effect_sizes(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> pd.DataFrame:
-    """Compute simple effect sizes for two-group comparisons."""
-    groups = df[group_col].dropna().unique()
-    if len(groups) != 2:
-        logger.info("Effect sizes limited to 2 groups; found %s groups, skipping.", len(groups))
-        return pd.DataFrame()
-    g1, g2 = groups
-    df1 = df[df[group_col] == g1]
-    df2 = df[df[group_col] == g2]
+def effect_sizes(
+    df: pd.DataFrame, group_col: str, outcome_cols: List[str]
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Compute effect sizes for multi-arm trials.
 
-    records = []
+    - Pairwise effect sizes for all group pairs:
+        - numeric: Cohen's d
+        - categorical binary: odds ratio (2x2)
+    - One-way ANOVA for numeric outcomes (>=2 groups)
+    - Tukey HSD post-hoc for numeric outcomes (>=3 groups)
+    """
+    groups = [g for g in df[group_col].dropna().unique()]
+    if len(groups) < 2:
+        logger.info("Need at least 2 groups for effect sizes; found %s.", len(groups))
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+    pairwise_records = []
+    anova_records = []
+    tukey_records = []
+
     for col in outcome_cols:
         if col not in df.columns:
             continue
-        if pd.api.types.is_numeric_dtype(df[col]):
-            d = cohen_d(df1[col], df2[col])
-            records.append({"variable": col, "type": "numeric", "cohens_d": d, "group_a": g1, "group_b": g2})
-        else:
-            tab = pd.crosstab(df[group_col], df[col])
-            if tab.shape == (2, 2):
-                or_val = odds_ratio_from_table(tab)
-                records.append(
-                    {
-                        "variable": col,
-                        "type": "categorical",
-                        "odds_ratio": or_val,
-                        "group_a": g1,
-                        "group_b": g2,
-                    }
+        col_data = df[[group_col, col]].dropna()
+        # Numeric outcomes
+        if pd.api.types.is_numeric_dtype(col_data[col]):
+            # Pairwise Cohen's d
+            for g1, g2 in combinations(groups, 2):
+                d = cohen_d(
+                    col_data[col_data[group_col] == g1][col],
+                    col_data[col_data[group_col] == g2][col],
                 )
-    return pd.DataFrame(records)
+                pairwise_records.append(
+                    {"variable": col, "type": "numeric", "group_a": g1, "group_b": g2, "cohens_d": d}
+                )
+            # ANOVA
+            samples = [col_data[col_data[group_col] == g][col] for g in groups if not col_data[col_data[group_col] == g].empty]
+            if len(samples) >= 2:
+                f_stat, p_val = stats.f_oneway(*samples)
+                anova_records.append(
+                    {"variable": col, "type": "numeric", "groups": len(groups), "f_stat": f_stat, "p_value": p_val}
+                )
+            # Tukey (requires >=3 groups)
+            if len(groups) >= 3 and len(col_data) > 0:
+                tukey = pairwise_tukeyhsd(endog=col_data[col], groups=col_data[group_col], alpha=0.05)
+                tukey_df = pd.DataFrame(data=tukey.summary().data[1:], columns=tukey.summary().data[0])
+                tukey_df.insert(0, "variable", col)
+                tukey_records.extend(tukey_df.to_dict(orient="records"))
+        else:
+            # Categorical: compute odds ratio only for 2x2 in each pair
+            for g1, g2 in combinations(groups, 2):
+                pair_df = col_data[col_data[group_col].isin([g1, g2])]
+                tab = pd.crosstab(pair_df[group_col], pair_df[col])
+                if tab.shape == (2, 2):
+                    or_val = odds_ratio_from_table(tab)
+                    pairwise_records.append(
+                        {
+                            "variable": col,
+                            "type": "categorical",
+                            "group_a": g1,
+                            "group_b": g2,
+                            "odds_ratio": or_val,
+                        }
+                    )
+
+    return pd.DataFrame(pairwise_records), pd.DataFrame(anova_records), pd.DataFrame(tukey_records)
 
 
-def dataframe_section(df: pd.DataFrame, title: str) -> str:
-    """Render HTML section for a dataframe or placeholder if empty."""
+def render_table(
+    df: Optional[pd.DataFrame],
+    title: str,
+    precision: int = 3,
+    highlight_cols: Optional[List[str]] = None,
+) -> str:
+    """Render HTML section with optional highlight."""
     if df is None or df.empty:
         return f"<h2>{title}</h2><p class='muted'>データなし</p>"
     if isinstance(df, pd.Series):
         df = df.to_frame()
-    return f"<h2>{title}</h2>" + df.to_html(classes='table', border=0)
+    styler = df.style.format(precision=precision).set_table_attributes('class="table"')
+    if highlight_cols:
+        highlight = [c for c in highlight_cols if c in df.columns]
+        if highlight:
+            styler = styler.background_gradient(cmap="YlOrRd", subset=highlight)
+    return f"<h2>{title}</h2>" + styler.to_html()
+
+
+def encode_image(path: Path) -> Optional[str]:
+    if not path.exists():
+        return None
+    data = path.read_bytes()
+    return base64.b64encode(data).decode("utf-8")
 
 
 def generate_html_report(
@@ -194,8 +258,37 @@ def generate_html_report(
     group_num: Optional[pd.DataFrame] = None,
     group_cat: Optional[pd.DataFrame] = None,
     effect_df: Optional[pd.DataFrame] = None,
+    anova_df: Optional[pd.DataFrame] = None,
+    tukey_df: Optional[pd.DataFrame] = None,
+    plot_paths: Optional[List[Path]] = None,
 ) -> None:
     """Write a simple HTML report with tables."""
+    plot_html = ""
+    if plot_paths:
+        imgs = []
+        for p in plot_paths:
+            enc = encode_image(p)
+            if enc:
+                imgs.append(f'<div class="plot"><img src="data:image/png;base64,{enc}" alt="{p.name}"/></div>')
+        if imgs:
+            plot_html = "<h2>プロット</h2><div class='plot-grid'>" + "".join(imgs) + "</div>"
+
+    outlier_tabs = f"""
+    <h2>外れ値</h2>
+    <div class="tabs">
+      <div class="tab-buttons">
+        <button data-tab="outlier-summary" class="active">サマリー</button>
+        <button data-tab="outlier-rows">サンプル行</button>
+      </div>
+      <div id="outlier-summary" class="tab-content active">
+        {render_table(outlier_df, "", highlight_cols=["outlier_count", "outlier_pct"])}
+      </div>
+      <div id="outlier-rows" class="tab-content">
+        {render_table(outlier_rows, "")}
+      </div>
+    </div>
+    """
+
     html = f"""
 <!DOCTYPE html>
 <html lang="ja">
@@ -215,6 +308,14 @@ def generate_html_report(
     .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }}
     .card {{ background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 12px; }}
     .card small {{ color: #9ca3af; }}
+    .plot-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }}
+    .plot img {{ width: 100%; border: 1px solid #1f2937; border-radius: 10px; background: #0b1220; }}
+    .tabs {{ margin-top: 8px; }}
+    .tab-buttons {{ display: flex; gap: 8px; margin-bottom: 8px; }}
+    .tab-buttons button {{ padding: 8px 12px; border-radius: 8px; border: 1px solid #1f2937; background: #111827; color: #e5e7eb; cursor: pointer; }}
+    .tab-buttons button.active {{ background: #10b981; color: #0b1220; border-color: #10b981; }}
+    .tab-content {{ display: none; }}
+    .tab-content.active {{ display: block; }}
   </style>
 </head>
 <body>
@@ -225,18 +326,32 @@ def generate_html_report(
     <div class="card"><div class="pill">カテゴリ列</div><div>{len(cat_summary)}</div><small>頻度・ユニーク数</small></div>
     <div class="card"><div class="pill">欠測</div><div>{miss_df['missing_count'].sum() if not miss_df.empty else 0}</div><small>総欠測数</small></div>
   </div>
-  {dataframe_section(preview_df, "データプレビュー")}
-  {dataframe_section(num_summary, "数値列サマリー")}
-  {dataframe_section(cat_summary, "カテゴリ列サマリー")}
-  {dataframe_section(miss_df, "欠測サマリー")}
-  {dataframe_section(outlier_df, "外れ値サマリー (IQR)")}
-  {dataframe_section(outlier_rows, "外れ値サンプル行")}
-  {dataframe_section(group_num, "グループ別 数値サマリー") if group_num is not None else ""}
-  {dataframe_section(group_cat, "グループ別 カテゴリサマリー") if group_cat is not None else ""}
-  {dataframe_section(effect_df, "効果量 (2群のみ)") if effect_df is not None else ""}
-    </body>
-    </html>
-    """
+  {render_table(preview_df.head(10), "データプレビュー (先頭10行)")}
+  {render_table(num_summary, "数値列サマリー")}
+  {render_table(cat_summary, "カテゴリ列サマリー")}
+  {render_table(miss_df, "欠測サマリー", highlight_cols=["missing_count", "missing_pct"])}
+  {outlier_tabs}
+  {plot_html}
+  {render_table(group_num, "グループ別 数値サマリー") if group_num is not None else ""}
+  {render_table(group_cat, "グループ別 カテゴリサマリー") if group_cat is not None else ""}
+  {render_table(effect_df, "効果量 (ペアワイズ)") if effect_df is not None else ""}
+  {render_table(anova_df, "ANOVA") if anova_df is not None else ""}
+  {render_table(tukey_df, "Tukey HSD") if tukey_df is not None else ""}
+  <script>
+    const tabs = document.querySelectorAll('.tab-buttons button');
+    tabs.forEach(btn => {{
+      btn.addEventListener('click', () => {{
+        const target = btn.dataset.tab;
+        document.querySelectorAll('.tab-buttons button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(target).classList.add('active');
+      }});
+    }});
+  </script>
+</body>
+</html>
+"""
     out_path.write_text(html, encoding="utf-8")
     logger.info("Saved HTML report: %s", out_path)
 
@@ -320,6 +435,7 @@ def main():
     args = parser.parse_args()
 
     out_dir = ensure_output_dir(args.out_dir)
+    ensure_matplotlib_config(out_dir)
     df = read_csv(args.csv_path)
 
     logger.info("Preview:\n%s", preview(df))
@@ -340,7 +456,7 @@ def main():
     else:
         logger.info("No categorical columns to summarize.")
 
-    plot_numeric(df, out_dir, max_plots=args.max_plots)
+    plot_paths = plot_numeric(df, out_dir, max_plots=args.max_plots)
 
     miss_df = missing_summary(df)
     miss_path = out_dir / "missing_summary.csv"
@@ -364,6 +480,8 @@ def main():
     grp_num_df: Optional[pd.DataFrame] = None
     grp_cat_df: Optional[pd.DataFrame] = None
     eff_df: Optional[pd.DataFrame] = None
+    anova_df: Optional[pd.DataFrame] = None
+    tukey_df: Optional[pd.DataFrame] = None
 
     if args.group_col:
         try:
@@ -378,13 +496,21 @@ def main():
                 logger.info("Saved group categorical summary: %s", grp_cat_path)
             grp_num_df, grp_cat_df = grp_num, grp_cat
             if args.effect_cols:
-                eff_df = effect_sizes(df, args.group_col, args.effect_cols)
+                eff_df, anova_df, tukey_df = effect_sizes(df, args.group_col, args.effect_cols)
                 eff_path = out_dir / "effect_sizes.csv"
-                if not eff_df.empty:
+                anova_path = out_dir / "effect_anova.csv"
+                tukey_path = out_dir / "effect_tukey.csv"
+                if eff_df is not None and not eff_df.empty:
                     eff_df.to_csv(eff_path, index=False)
                     logger.info("Saved effect sizes: %s", eff_path)
                 else:
                     logger.info("No effect sizes computed (check group count or columns).")
+                if anova_df is not None and not anova_df.empty:
+                    anova_df.to_csv(anova_path, index=False)
+                    logger.info("Saved ANOVA results: %s", anova_path)
+                if tukey_df is not None and not tukey_df.empty:
+                    tukey_df.to_csv(tukey_path, index=False)
+                    logger.info("Saved Tukey HSD: %s", tukey_path)
         except KeyError as e:
             logger.error(str(e))
 
@@ -400,6 +526,9 @@ def main():
         grp_num_df,
         grp_cat_df,
         eff_df,
+        anova_df,
+        tukey_df,
+        plot_paths,
     )
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
