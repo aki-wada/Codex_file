@@ -178,6 +178,8 @@ def dataframe_section(df: pd.DataFrame, title: str) -> str:
     """Render HTML section for a dataframe or placeholder if empty."""
     if df is None or df.empty:
         return f"<h2>{title}</h2><p class='muted'>データなし</p>"
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
     return f"<h2>{title}</h2>" + df.to_html(classes='table', border=0)
 
 
@@ -232,12 +234,11 @@ def generate_html_report(
   {dataframe_section(group_num, "グループ別 数値サマリー") if group_num is not None else ""}
   {dataframe_section(group_cat, "グループ別 カテゴリサマリー") if group_cat is not None else ""}
   {dataframe_section(effect_df, "効果量 (2群のみ)") if effect_df is not None else ""}
-</body>
-</html>
-"""
+    </body>
+    </html>
+    """
     out_path.write_text(html, encoding="utf-8")
     logger.info("Saved HTML report: %s", out_path)
-    return pd.DataFrame(records)
 
 
 def plot_numeric(df: pd.DataFrame, output_dir: Path, max_plots: int = 6) -> List[Path]:
