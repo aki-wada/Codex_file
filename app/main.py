@@ -275,7 +275,7 @@ def generate_html_report(
 
     outlier_tabs = f"""
     <h2>外れ値</h2>
-    <div class="tabs">
+    <div class="tabs card">
       <div class="tab-buttons">
         <button data-tab="outlier-summary" class="active">サマリー</button>
         <button data-tab="outlier-rows">サンプル行</button>
@@ -296,47 +296,109 @@ def generate_html_report(
   <meta charset="UTF-8" />
   <title>記述統計レポート</title>
   <style>
-    body {{ font-family: "Helvetica Neue", Arial, sans-serif; margin: 24px; background: #0f1729; color: #e5e7eb; }}
-    h1 {{ margin-top: 0; }}
-    h2 {{ margin-top: 24px; }}
-    .muted {{ color: #9ca3af; }}
+    :root {{
+      --bg: #0f1729;
+      --panel: #111b2e;
+      --card: #1b2a44;
+      --accent: #4ade80;
+      --accent-2: #22d3ee;
+      --muted: #9fb3c8;
+      --text: #e7ecf5;
+      --border: #1f2f4c;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 20%, #14213d 0, #0f1729 45%), radial-gradient(circle at 80% 0, #0e7490 0, #0f1729 40%);
+      color: var(--text);
+      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    }}
+    .shell {{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }}
+    h1 {{ margin: 0; font-size: 26px; letter-spacing: 0.01em; }}
+    h2 {{ margin-top: 18px; }}
+    .pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.18), rgba(34, 211, 238, 0.18));
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }}
+    .card {{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+    }}
+    .card small {{ color: var(--muted); }}
+    .spark {{
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.18), transparent 45%);
+      pointer-events: none;
+    }}
+    .section {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }}
+    .muted {{ color: var(--muted); }}
     .table {{ width: 100%; border-collapse: collapse; font-size: 14px; background: #111827; color: #e5e7eb; }}
     .table th, .table td {{ padding: 8px 10px; border: 1px solid #1f2937; }}
     .table th {{ background: #1f2937; text-align: left; }}
     .table tr:nth-child(even) {{ background: #0b1220; }}
-    .pill {{ display: inline-block; padding: 6px 10px; border-radius: 12px; background: #10b981; color: #0b1220; font-weight: 700; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }}
-    .card {{ background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 12px; }}
-    .card small {{ color: #9ca3af; }}
     .plot-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }}
-    .plot img {{ width: 100%; border: 1px solid #1f2937; border-radius: 10px; background: #0b1220; }}
+    .plot img {{ width: 100%; border: 1px solid var(--border); border-radius: 10px; background: #0b1220; }}
     .tabs {{ margin-top: 8px; }}
-    .tab-buttons {{ display: flex; gap: 8px; margin-bottom: 8px; }}
-    .tab-buttons button {{ padding: 8px 12px; border-radius: 8px; border: 1px solid #1f2937; background: #111827; color: #e5e7eb; cursor: pointer; }}
+    .tab-buttons {{ display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }}
+    .tab-buttons button {{ padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: #111827; color: var(--text); cursor: pointer; }}
     .tab-buttons button.active {{ background: #10b981; color: #0b1220; border-color: #10b981; }}
     .tab-content {{ display: none; }}
     .tab-content.active {{ display: block; }}
   </style>
 </head>
 <body>
-  <h1>記述統計レポート</h1>
-  <div class="grid">
-    <div class="card"><div class="pill">プレビュー</div><div>{len(preview_df)} 行</div><small>head() を表示</small></div>
-    <div class="card"><div class="pill">数値列</div><div>{len(num_summary)}</div><small>describe()</small></div>
-    <div class="card"><div class="pill">カテゴリ列</div><div>{len(cat_summary)}</div><small>頻度・ユニーク数</small></div>
-    <div class="card"><div class="pill">欠測</div><div>{miss_df['missing_count'].sum() if not miss_df.empty else 0}</div><small>総欠測数</small></div>
+  <div class="shell">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div>
+        <h1>記述統計レポート</h1>
+        <div class="pill">データプレビューとサマリー / multi-arm 対応</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="spark"></div><small>レコード数</small><div style="font-size:24px;font-weight:600;">{len(preview_df)} 行</div><small>head() を表示</small></div>
+      <div class="card"><div class="spark"></div><small>数値列</small><div style="font-size:24px;font-weight:600;">{len(num_summary)}</div><small>describe()</small></div>
+      <div class="card"><div class="spark"></div><small>カテゴリ列</small><div style="font-size:24px;font-weight:600;">{len(cat_summary)}</div><small>頻度・ユニーク数</small></div>
+      <div class="card"><div class="spark"></div><small>総欠測</small><div style="font-size:24px;font-weight:600;">{miss_df['missing_count'].sum() if not miss_df.empty else 0}</div><small>missing_count 合計</small></div>
+    </div>
+
+    <div class="section">{render_table(preview_df.head(10), "データプレビュー (先頭10行)")}</div>
+    <div class="section">{render_table(num_summary, "数値列サマリー")}</div>
+    <div class="section">{render_table(cat_summary, "カテゴリ列サマリー")}</div>
+    <div class="section">{render_table(miss_df, "欠測サマリー", highlight_cols=["missing_count", "missing_pct"])}</div>
+    <div class="section">{outlier_tabs}</div>
+    {f'<div class="section">{plot_html}</div>' if plot_html else ''}
+    {f'<div class="section">{render_table(group_num, "グループ別 数値サマリー")}</div>' if group_num is not None else ""}
+    {f'<div class="section">{render_table(group_cat, "グループ別 カテゴリサマリー")}</div>' if group_cat is not None else ""}
+    {f'<div class="section">{render_table(effect_df, "効果量 (ペアワイズ)")}</div>' if effect_df is not None else ""}
+    {f'<div class="section">{render_table(anova_df, "ANOVA")}</div>' if anova_df is not None else ""}
+    {f'<div class="section">{render_table(tukey_df, "Tukey HSD")}</div>' if tukey_df is not None else ""}
   </div>
-  {render_table(preview_df.head(10), "データプレビュー (先頭10行)")}
-  {render_table(num_summary, "数値列サマリー")}
-  {render_table(cat_summary, "カテゴリ列サマリー")}
-  {render_table(miss_df, "欠測サマリー", highlight_cols=["missing_count", "missing_pct"])}
-  {outlier_tabs}
-  {plot_html}
-  {render_table(group_num, "グループ別 数値サマリー") if group_num is not None else ""}
-  {render_table(group_cat, "グループ別 カテゴリサマリー") if group_cat is not None else ""}
-  {render_table(effect_df, "効果量 (ペアワイズ)") if effect_df is not None else ""}
-  {render_table(anova_df, "ANOVA") if anova_df is not None else ""}
-  {render_table(tukey_df, "Tukey HSD") if tukey_df is not None else ""}
   <script>
     const tabs = document.querySelectorAll('.tab-buttons button');
     tabs.forEach(btn => {{
