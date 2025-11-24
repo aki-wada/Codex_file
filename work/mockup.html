@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>医療統計アシスト - モックアップ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1729;
+      --panel: #111b2e;
+      --card: #1b2a44;
+      --accent: #4ade80;
+      --accent-2: #22d3ee;
+      --muted: #9fb3c8;
+      --text: #e7ecf5;
+      --border: #1f2f4c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      background: radial-gradient(circle at 20% 20%, #14213d 0, #0f1729 45%), radial-gradient(circle at 80% 0, #0e7490 0, #0f1729 40%);
+      color: var(--text);
+      font-family: "IBM Plex Sans", "Space Grotesk", system-ui, -apple-system, sans-serif;
+    }
+    aside {
+      padding: 28px 24px;
+      background: linear-gradient(180deg, #0c1222 0%, #0f1729 40%, #0c1222 100%);
+      border-right: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .brand .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
+    }
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    nav a {
+      padding: 12px 14px;
+      border-radius: 10px;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      transition: all 0.18s ease;
+      font-weight: 500;
+    }
+    nav a:hover {
+      background: rgba(34, 211, 238, 0.08);
+      border-color: var(--border);
+    }
+    nav a.active {
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.18), rgba(34, 211, 238, 0.18));
+      border-color: rgba(34, 211, 238, 0.35);
+    }
+    main {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .title h1 {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: 0.01em;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid rgba(34, 211, 238, 0.3);
+    }
+    .upload {
+      padding: 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .upload input[type="file"] {
+      color: var(--text);
+    }
+    .btn {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(74, 222, 128, 0.4);
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.22), rgba(34, 211, 238, 0.18));
+      color: #0a1525;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(34, 211, 238, 0.18); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card small { color: var(--muted); }
+    .metric { font-size: 26px; font-weight: 600; }
+    .spark {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.18), transparent 45%);
+      pointer-events: none;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .chart {
+      height: 260px;
+      border-radius: 12px;
+      border: 1px dashed rgba(159, 179, 200, 0.4);
+      background: repeating-linear-gradient(45deg, rgba(159, 179, 200, 0.05), rgba(159, 179, 200, 0.05) 10px, transparent 10px, transparent 20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      margin-top: 8px;
+    }
+    @media (max-width: 900px) {
+      body { grid-template-columns: 1fr; }
+      aside { position: sticky; top: 0; z-index: 2; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <div class="dot"></div>
+      <span>MedStats Assist</span>
+    </div>
+    <nav>
+      <a href="#" class="active">データ取込</a>
+      <a href="#">記述統計</a>
+      <a href="#">可視化</a>
+      <a href="#">レポート</a>
+      <a href="#">履歴・監査</a>
+    </nav>
+  </aside>
+  <main>
+    <div class="top-bar">
+      <div class="title">
+        <h1>データ取込と記述統計</h1>
+        <div class="pill">最小プロトタイプ / CSVアップロード → サマリー生成</div>
+      </div>
+      <button class="btn">解析を実行</button>
+    </div>
+
+    <div class="upload">
+      <div>
+        <strong>データセットを選択</strong><br>
+        <small>CSV/TSVをアップロード。文字コードと区切りは自動判定。</small>
+      </div>
+      <input type="file" accept=".csv,.tsv" />
+      <button class="btn">ファイルを読み込む</button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="spark"></div>
+        <small>レコード数</small>
+        <div class="metric">1,250</div>
+        <small>欠測: 2.4%</small>
+      </div>
+      <div class="card">
+        <div class="spark"></div>
+        <small>数値列</small>
+        <div class="metric">18</div>
+        <small>統計表 / 箱ひげ / ヒスト</small>
+      </div>
+      <div class="card">
+        <div class="spark"></div>
+        <small>カテゴリ列</small>
+        <div class="metric">6</div>
+        <small>頻度表 / クロス集計</small>
+      </div>
+      <div class="card">
+        <div class="spark"></div>
+        <small>グループ指定</small>
+        <div class="metric">介入 vs 対照</div>
+        <small>効果量: 自動算出</small>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <strong>数値列サマリー</strong>
+        <div class="chart">箱ひげ + ヒスト例</div>
+      </div>
+      <div>
+        <strong>カテゴリ頻度</strong>
+        <div class="chart">棒グラフ + クロス集計例</div>
+      </div>
+      <div>
+        <strong>欠測・外れ値</strong>
+        <div class="chart">欠測ヒートマップ / IQR外れ値</div>
+      </div>
+    </div>
+
+    <footer>理知的でモダンなUIのコンセプトモック。実装時はReact/NextやPython UIに展開予定。</footer>
+  </main>
+</body>
+</html>
