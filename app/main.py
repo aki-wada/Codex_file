@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 def read_csv(input_path: Path) -> pd.DataFrame:
     logger.info("Reading data from %s", input_path)
+    if not input_path.exists():
+        raise FileNotFoundError(f"CSV not found: {input_path}")
+    if input_path.is_dir():
+        raise IsADirectoryError(f"Path is a directory, expected CSV file: {input_path}")
     df = pd.read_csv(input_path)
     if df.empty:
         raise ValueError("Loaded DataFrame is empty")
