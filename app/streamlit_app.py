@@ -37,6 +37,10 @@ body, .main, .block-container {
   background: radial-gradient(circle at 20% 20%, #14213d 0, #0f1729 45%), radial-gradient(circle at 80% 0, #0e7490 0, #0f1729 40%) !important;
   color: var(--text) !important;
 }
+.css-1d391kg, .css-18e3th9, .css-1lcbmhc {  /* sidebar containers (Streamlit class names may change by version) */
+  background: linear-gradient(180deg, #0c1222 0%, #0f1729 40%, #0c1222 100%) !important;
+  border-right: 1px solid var(--border) !important;
+}
 div.stButton > button {
   background: linear-gradient(135deg, rgba(74, 222, 128, 0.22), rgba(34, 211, 238, 0.18));
   border: 1px solid rgba(74, 222, 128, 0.4);
@@ -72,6 +76,23 @@ div.stButton > button {
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+
+st.sidebar.markdown(
+    """
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#4ade80,#22d3ee);box-shadow:0 0 12px rgba(34,211,238,0.4);"></div>
+      <span style="font-weight:700;color:#e7ecf5;">MedStats Assist</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <a href="../frontend/index.html" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);">ダッシュボード</a>
+      <a href="../outputs/report.html" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid var(--border);">最新レポート</a>
+      <a href="http://localhost:8504" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid var(--border);">Streamlitトップ</a>
+      <a href="../work/manual.md" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid var(--border);">操作マニュアル</a>
+      <a href="../work/spec.md" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid var(--border);">仕様書</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     """
