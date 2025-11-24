@@ -39,7 +39,8 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 ```bash
 ./.venv/bin/streamlit run app/streamlit_app.py
 ```
-ブラウザで http://localhost:8501 を開き、CSV/TSVをアップロードして操作してください。
+デフォルトポートを 8504 に設定しています（`.streamlit/config.toml`）。  
+ブラウザで http://localhost:8504 を開き、CSV/TSVをアップロードして操作してください。
 
 ### サンプルデータ
 
