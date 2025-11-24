@@ -252,43 +252,43 @@ if view == "解析":
             unsafe_allow_html=True,
         )
 
-    st.subheader("数値列サマリー")
-    st.dataframe(num_summary, use_container_width=True)
+        st.subheader("数値列サマリー")
+        st.dataframe(num_summary, use_container_width=True)
 
-    st.subheader("カテゴリ列サマリー")
-    st.dataframe(cat_summary, use_container_width=True)
+        st.subheader("カテゴリ列サマリー")
+        st.dataframe(cat_summary, use_container_width=True)
 
-    st.subheader("欠測サマリー")
-    st.dataframe(miss_df, use_container_width=True)
+        st.subheader("欠測サマリー")
+        st.dataframe(miss_df, use_container_width=True)
 
-    st.subheader("外れ値サマリー")
-    st.dataframe(out_sum, use_container_width=True)
-    st.subheader("外れ値サンプル行")
-    st.dataframe(out_rows.head(max_outlier_rows), use_container_width=True)
+        st.subheader("外れ値サマリー")
+        st.dataframe(out_sum, use_container_width=True)
+        st.subheader("外れ値サンプル行")
+        st.dataframe(out_rows.head(max_outlier_rows), use_container_width=True)
 
-    if grp_num_df is not None:
-        st.subheader("グループ別 数値サマリー")
-        st.dataframe(grp_num_df, use_container_width=True)
-    if grp_cat_df is not None:
-        st.subheader("グループ別 カテゴリサマリー")
-        st.dataframe(grp_cat_df, use_container_width=True)
-    if eff_df is not None and not eff_df.empty:
-        st.subheader("効果量 (ペアワイズ)")
-        st.dataframe(eff_df, use_container_width=True)
-    if anova_df is not None and not anova_df.empty:
-        st.subheader("ANOVA")
-        st.dataframe(anova_df, use_container_width=True)
-    if tukey_df is not None and not tukey_df.empty:
-        st.subheader("Tukey HSD")
-        st.dataframe(tukey_df, use_container_width=True)
-    if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
-        step_state["test"] = "done"
+        if grp_num_df is not None:
+            st.subheader("グループ別 数値サマリー")
+            st.dataframe(grp_num_df, use_container_width=True)
+        if grp_cat_df is not None:
+            st.subheader("グループ別 カテゴリサマリー")
+            st.dataframe(grp_cat_df, use_container_width=True)
+        if eff_df is not None and not eff_df.empty:
+            st.subheader("効果量 (ペアワイズ)")
+            st.dataframe(eff_df, use_container_width=True)
+        if anova_df is not None and not anova_df.empty:
+            st.subheader("ANOVA")
+            st.dataframe(anova_df, use_container_width=True)
+        if tukey_df is not None and not tukey_df.empty:
+            st.subheader("Tukey HSD")
+            st.dataframe(tukey_df, use_container_width=True)
+        if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
+            step_state["test"] = "done"
 
-    st.subheader("プロット")
-    for p in plot_paths:
-        st.image(str(p))
+        st.subheader("プロット")
+        for p in plot_paths:
+            st.image(str(p))
 
-    # HTML report generation for download
+        # HTML report generation for download
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
             generate_html_report(
                 Path(tmp.name),
