@@ -171,93 +171,93 @@ if view == "解析":
     step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
 
     if uploaded:
-    if delimiter == "自動判定":
-        sep = None
-    elif delimiter == "カンマ(,)":
-        sep = ","
-    elif delimiter == "タブ(\\t)":
-        sep = "\t"
-    else:
-        sep = ";"
-    try:
-        df = pd.read_csv(uploaded, sep=sep, engine="python" if sep is None else "c", encoding=encoding)
-    except Exception as e:
-        st.error(f"読み込みに失敗しました: {e}")
-        st.stop()
-    step_state["load"] = "done"
+        if delimiter == "自動判定":
+            sep = None
+        elif delimiter == "カンマ(,)":
+            sep = ","
+        elif delimiter == "タブ(\\t)":
+            sep = "\t"
+        else:
+            sep = ";"
+        try:
+            df = pd.read_csv(uploaded, sep=sep, engine="python" if sep is None else "c", encoding=encoding)
+        except Exception as e:
+            st.error(f"読み込みに失敗しました: {e}")
+            st.stop()
+        step_state["load"] = "done"
 
-    # Preprocess: drop then impute
-    df, preproc_info = preprocess_df(
-        df,
-        impute_numeric=impute_numeric,
-        impute_categorical=impute_categorical,
-        drop_missing_thresh=drop_thresh,
-    )
-    st.info(
-        f"前処理: dropped_rows={preproc_info.get('dropped_rows',0)}, "
-        f"impute_numeric={preproc_info.get('imputed_numeric')}, "
-        f"impute_categorical={preproc_info.get('imputed_categorical')}"
-    )
-    step_state["preprocess"] = "done"
-    st.success(f"読み込み完了: {df.shape[0]} 行 x {df.shape[1]} 列")
+        # Preprocess: drop then impute
+        df, preproc_info = preprocess_df(
+            df,
+            impute_numeric=impute_numeric,
+            impute_categorical=impute_categorical,
+            drop_missing_thresh=drop_thresh,
+        )
+        st.info(
+            f"前処理: dropped_rows={preproc_info.get('dropped_rows',0)}, "
+            f"impute_numeric={preproc_info.get('imputed_numeric')}, "
+            f"impute_categorical={preproc_info.get('imputed_categorical')}"
+        )
+        step_state["preprocess"] = "done"
+        st.success(f"読み込み完了: {df.shape[0]} 行 x {df.shape[1]} 列")
 
-    group_col = st.selectbox("グループ列（効果量/グループ別集計に使用）", options=["(なし)"] + list(df.columns))
-    effect_cols = st.multiselect("効果量を計算する列（数値: Cohen's d, 2x2カテゴリ: OR）", options=list(df.columns))
+        group_col = st.selectbox("グループ列（効果量/グループ別集計に使用）", options=["(なし)"] + list(df.columns))
+        effect_cols = st.multiselect("効果量を計算する列（数値: Cohen's d, 2x2カテゴリ: OR）", options=list(df.columns))
 
-    with st.expander("データプレビュー"):
-        st.dataframe(preview(df, rows=preview_rows), use_container_width=True)
+        with st.expander("データプレビュー"):
+            st.dataframe(preview(df, rows=preview_rows), use_container_width=True)
 
-    # Prepare outputs
-    outputs_dir = ensure_output_dir(Path("outputs/streamlit"))
-    ensure_matplotlib_config(outputs_dir)
+        # Prepare outputs
+        outputs_dir = ensure_output_dir(Path("outputs/streamlit"))
+        ensure_matplotlib_config(outputs_dir)
 
-    num_summary, cat_summary = summarize(df)
-    miss_df = missing_summary(df)
-    out_sum, out_rows = outlier_summary(df, max_rows=max_outlier_rows)
-    step_state["describe"] = "done"
+        num_summary, cat_summary = summarize(df)
+        miss_df = missing_summary(df)
+        out_sum, out_rows = outlier_summary(df, max_rows=max_outlier_rows)
+        step_state["describe"] = "done"
 
-    grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
-    if group_col and group_col != "(なし)":
-        grp_num_df, grp_cat_df = group_summaries(df, group_col)
-        if effect_cols:
-            eff_df, anova_df, tukey_df = effect_sizes(df, group_col, effect_cols)
+        grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
+        if group_col and group_col != "(なし)":
+            grp_num_df, grp_cat_df = group_summaries(df, group_col)
+            if effect_cols:
+                eff_df, anova_df, tukey_df = effect_sizes(df, group_col, effect_cols)
 
-    # Plots (allow selection of numeric columns)
-    numeric_cols = list(df.select_dtypes(include="number").columns)
-    plot_select = st.multiselect("プロットする数値列を選択", options=numeric_cols, default=numeric_cols[:max_plots])
-    plot_paths = plot_numeric(df[numeric_cols], outputs_dir, max_plots=max_plots, selected_cols=plot_select)
+        # Plots (allow selection of numeric columns)
+        numeric_cols = list(df.select_dtypes(include="number").columns)
+        plot_select = st.multiselect("プロットする数値列を選択", options=numeric_cols, default=numeric_cols[:max_plots])
+        plot_paths = plot_numeric(df[numeric_cols], outputs_dir, max_plots=max_plots, selected_cols=plot_select)
 
-    col1, col2, col3 = st.columns(3)
-    col1.markdown(
-        f"""
-        <div class="card">
-          <div class="spark"></div>
-          <small>数値列</small>
-          <div style="font-size:24px;font-weight:700;">{len(num_summary)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    col2.markdown(
-        f"""
-        <div class="card">
-          <div class="spark"></div>
-          <small>カテゴリ列</small>
-          <div style="font-size:24px;font-weight:700;">{len(cat_summary)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    col3.markdown(
-        f"""
-        <div class="card">
-          <div class="spark"></div>
-          <small>総欠測</small>
-          <div style="font-size:24px;font-weight:700;">{miss_df["missing_count"].sum()}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        col1, col2, col3 = st.columns(3)
+        col1.markdown(
+            f"""
+            <div class="card">
+              <div class="spark"></div>
+              <small>数値列</small>
+              <div style="font-size:24px;font-weight:700;">{len(num_summary)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        col2.markdown(
+            f"""
+            <div class="card">
+              <div class="spark"></div>
+              <small>カテゴリ列</small>
+              <div style="font-size:24px;font-weight:700;">{len(cat_summary)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        col3.markdown(
+            f"""
+            <div class="card">
+              <div class="spark"></div>
+              <small>総欠測</small>
+              <div style="font-size:24px;font-weight:700;">{miss_df["missing_count"].sum()}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.subheader("数値列サマリー")
     st.dataframe(num_summary, use_container_width=True)
@@ -315,9 +315,22 @@ if view == "解析":
         html_bytes = Path(tmp.name).read_bytes()
         st.download_button("HTMLレポートをダウンロード", data=html_bytes, file_name="report.html", mime="text/html")
 
+    st.sidebar.markdown(
+        f"""
+        <div style="margin-top:16px; color:#e7ecf5;">
+          <div style="font-weight:700; margin-bottom:8px;">進行状況</div>
+          <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
+          <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
+          <div>{step_badge("記述統計/可視化", step_state.get("describe", "pending"))}</div>
+          <div>{step_badge("統計解析/効果量", step_state.get("test", "pending"))}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.info("multi-arm trial では全ペアの効果量と ANOVA/Tukey を計算します。2群のみの場合は従来の計算です。")
-else:
-    st.write("CSV/TSV をアップロードしてください。")
+    else:
+        st.write("CSV/TSV をアップロードしてください。")
 
 st.sidebar.markdown(
     f"""
