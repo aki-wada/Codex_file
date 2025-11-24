@@ -43,6 +43,8 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 ```
 デフォルトポートを 8504 に設定しています（`.streamlit/config.toml`）。  
 ブラウザで http://localhost:8504 を開き、CSV/TSVをアップロードして操作してください。
+- 区切り文字（自動/カンマ/タブ/セミコロン）と文字コード（utf-8/shift_jis）を選択可能。
+- プレビュー行数やプロット対象の数値列を選んで表示できます。
 
 ### フロントページ（モックアップ実装版）
 

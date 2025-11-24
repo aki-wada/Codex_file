@@ -113,19 +113,33 @@ st.markdown(
 )
 
 uploaded = st.file_uploader("CSV/TSV をアップロード", type=["csv", "tsv"])
+delimiter = st.sidebar.selectbox("区切り文字", ["自動判定", "カンマ(,)", "タブ(\\t)", "セミコロン(;)"], index=0)
+encoding = st.sidebar.selectbox("文字コード", ["utf-8", "shift_jis"], index=0)
+preview_rows = st.sidebar.slider("プレビュー行数", min_value=5, max_value=20, value=10)
 max_plots = st.slider("最大プロット数", min_value=1, max_value=12, value=6)
 max_outlier_rows = st.slider("外れ値サンプル行の上限", min_value=10, max_value=200, value=100, step=10)
 
 if uploaded:
-    sep = "\t" if uploaded.name.endswith(".tsv") else ","
-    df = pd.read_csv(uploaded, sep=sep)
+    if delimiter == "自動判定":
+        sep = None
+    elif delimiter == "カンマ(,)":
+        sep = ","
+    elif delimiter == "タブ(\\t)":
+        sep = "\t"
+    else:
+        sep = ";"
+    try:
+        df = pd.read_csv(uploaded, sep=sep, engine="python" if sep is None else "c", encoding=encoding)
+    except Exception as e:
+        st.error(f"読み込みに失敗しました: {e}")
+        st.stop()
     st.success(f"読み込み完了: {df.shape[0]} 行 x {df.shape[1]} 列")
 
     group_col = st.selectbox("グループ列（効果量/グループ別集計に使用）", options=["(なし)"] + list(df.columns))
     effect_cols = st.multiselect("効果量を計算する列（数値: Cohen's d, 2x2カテゴリ: OR）", options=list(df.columns))
 
     with st.expander("データプレビュー"):
-        st.dataframe(preview(df), use_container_width=True)
+        st.dataframe(preview(df, rows=preview_rows), use_container_width=True)
 
     # Prepare outputs
     outputs_dir = ensure_output_dir(Path("outputs/streamlit"))
@@ -141,8 +155,10 @@ if uploaded:
         if effect_cols:
             eff_df, anova_df, tukey_df = effect_sizes(df, group_col, effect_cols)
 
-    # Plots
-    plot_paths = plot_numeric(df, outputs_dir, max_plots=max_plots)
+    # Plots (allow selection of numeric columns)
+    numeric_cols = list(df.select_dtypes(include="number").columns)
+    plot_select = st.multiselect("プロットする数値列を選択", options=numeric_cols, default=numeric_cols[:max_plots])
+    plot_paths = plot_numeric(df[numeric_cols], outputs_dir, max_plots=max_plots, selected_cols=plot_select)
 
     col1, col2, col3 = st.columns(3)
     col1.markdown(

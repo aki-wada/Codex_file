@@ -522,10 +522,15 @@ def generate_html_report(
     logger.info("Saved HTML report: %s", out_path)
 
 
-def plot_numeric(df: pd.DataFrame, output_dir: Path, max_plots: int = 6) -> List[Path]:
+def plot_numeric(
+    df: pd.DataFrame, output_dir: Path, max_plots: int = 6, selected_cols: Optional[List[str]] = None
+) -> List[Path]:
     """Create histograms and boxplots for numeric columns (capped)."""
-    numeric_cols = list(df.select_dtypes(include="number").columns)
-    numeric_cols = numeric_cols[:max_plots]  # cap to avoid too many plots
+    if selected_cols:
+        numeric_cols = [c for c in selected_cols if c in df.columns]
+    else:
+        numeric_cols = list(df.select_dtypes(include="number").columns)
+        numeric_cols = numeric_cols[:max_plots]  # cap to avoid too many plots
     output_paths: List[Path] = []
 
     for col in numeric_cols:
