@@ -22,6 +22,7 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 - 数値列の外れ値検知(IQR)を `outlier_summary.csv` と `outlier_rows.csv` に保存します（`--max-outlier-rows` でサンプル行上限を指定）。
 - 数値列のヒストグラム+ボックスプロットを最大6列までPNGで保存します（`--max-plots` で変更）。
 - `outputs` ディレクトリは自動作成されます。
+- `--html-report` を指定すると記述統計レポートHTMLを出力します（省略時は `<out-dir>/report.html`）。
 
 ### グループ別記述統計と効果量
 

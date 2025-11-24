@@ -174,6 +174,72 @@ def effect_sizes(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> p
     return pd.DataFrame(records)
 
 
+def dataframe_section(df: pd.DataFrame, title: str) -> str:
+    """Render HTML section for a dataframe or placeholder if empty."""
+    if df is None or df.empty:
+        return f"<h2>{title}</h2><p class='muted'>データなし</p>"
+    return f"<h2>{title}</h2>" + df.to_html(classes='table', border=0)
+
+
+def generate_html_report(
+    out_path: Path,
+    preview_df: pd.DataFrame,
+    num_summary: pd.DataFrame,
+    cat_summary: pd.DataFrame,
+    miss_df: pd.DataFrame,
+    outlier_df: pd.DataFrame,
+    outlier_rows: pd.DataFrame,
+    group_num: Optional[pd.DataFrame] = None,
+    group_cat: Optional[pd.DataFrame] = None,
+    effect_df: Optional[pd.DataFrame] = None,
+) -> None:
+    """Write a simple HTML report with tables."""
+    html = f"""
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>記述統計レポート</title>
+  <style>
+    body {{ font-family: "Helvetica Neue", Arial, sans-serif; margin: 24px; background: #0f1729; color: #e5e7eb; }}
+    h1 {{ margin-top: 0; }}
+    h2 {{ margin-top: 24px; }}
+    .muted {{ color: #9ca3af; }}
+    .table {{ width: 100%; border-collapse: collapse; font-size: 14px; background: #111827; color: #e5e7eb; }}
+    .table th, .table td {{ padding: 8px 10px; border: 1px solid #1f2937; }}
+    .table th {{ background: #1f2937; text-align: left; }}
+    .table tr:nth-child(even) {{ background: #0b1220; }}
+    .pill {{ display: inline-block; padding: 6px 10px; border-radius: 12px; background: #10b981; color: #0b1220; font-weight: 700; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }}
+    .card {{ background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 12px; }}
+    .card small {{ color: #9ca3af; }}
+  </style>
+</head>
+<body>
+  <h1>記述統計レポート</h1>
+  <div class="grid">
+    <div class="card"><div class="pill">プレビュー</div><div>{len(preview_df)} 行</div><small>head() を表示</small></div>
+    <div class="card"><div class="pill">数値列</div><div>{len(num_summary)}</div><small>describe()</small></div>
+    <div class="card"><div class="pill">カテゴリ列</div><div>{len(cat_summary)}</div><small>頻度・ユニーク数</small></div>
+    <div class="card"><div class="pill">欠測</div><div>{miss_df['missing_count'].sum() if not miss_df.empty else 0}</div><small>総欠測数</small></div>
+  </div>
+  {dataframe_section(preview_df, "データプレビュー")}
+  {dataframe_section(num_summary, "数値列サマリー")}
+  {dataframe_section(cat_summary, "カテゴリ列サマリー")}
+  {dataframe_section(miss_df, "欠測サマリー")}
+  {dataframe_section(outlier_df, "外れ値サマリー (IQR)")}
+  {dataframe_section(outlier_rows, "外れ値サンプル行")}
+  {dataframe_section(group_num, "グループ別 数値サマリー") if group_num is not None else ""}
+  {dataframe_section(group_cat, "グループ別 カテゴリサマリー") if group_cat is not None else ""}
+  {dataframe_section(effect_df, "効果量 (2群のみ)") if effect_df is not None else ""}
+</body>
+</html>
+"""
+    out_path.write_text(html, encoding="utf-8")
+    logger.info("Saved HTML report: %s", out_path)
+    return pd.DataFrame(records)
+
+
 def plot_numeric(df: pd.DataFrame, output_dir: Path, max_plots: int = 6) -> List[Path]:
     """Create histograms and boxplots for numeric columns (capped)."""
     numeric_cols = list(df.select_dtypes(include="number").columns)
@@ -245,6 +311,11 @@ def main():
         nargs="*",
         help="Outcome columns to compute effect sizes (numeric: Cohen's d, categorical binary: odds ratio).",
     )
+    parser.add_argument(
+        "--html-report",
+        type=Path,
+        help="Path to save HTML report (defaults to <out-dir>/report.html).",
+    )
     args = parser.parse_args()
 
     out_dir = ensure_output_dir(args.out_dir)
@@ -289,6 +360,10 @@ def main():
     else:
         logger.info("No outlier rows detected (or none within sample limit).")
 
+    grp_num_df: Optional[pd.DataFrame] = None
+    grp_cat_df: Optional[pd.DataFrame] = None
+    eff_df: Optional[pd.DataFrame] = None
+
     if args.group_col:
         try:
             grp_num, grp_cat = group_summaries(df, args.group_col)
@@ -300,6 +375,7 @@ def main():
             if not grp_cat.empty:
                 grp_cat.to_csv(grp_cat_path)
                 logger.info("Saved group categorical summary: %s", grp_cat_path)
+            grp_num_df, grp_cat_df = grp_num, grp_cat
             if args.effect_cols:
                 eff_df = effect_sizes(df, args.group_col, args.effect_cols)
                 eff_path = out_dir / "effect_sizes.csv"
@@ -310,6 +386,20 @@ def main():
                     logger.info("No effect sizes computed (check group count or columns).")
         except KeyError as e:
             logger.error(str(e))
+
+    report_path = args.html_report or (out_dir / "report.html")
+    generate_html_report(
+        report_path,
+        preview(df),
+        num_summary,
+        cat_summary,
+        miss_df,
+        outlier_df,
+        outlier_rows,
+        grp_num_df,
+        grp_cat_df,
+        eff_df,
+    )
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
 
