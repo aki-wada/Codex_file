@@ -44,6 +44,7 @@ cd /Users/wadaakihiko/Desktop/wada_work/Codex_file
   - 設定: 区切り/文字コード、欠測処理、プレビュー行数、プロット数などを保存
   - 解析: 保存した設定でファイル読み込みと解析を実行
   - 左下に工程進行状況バッジ（読み込み→前処理→記述/可視化→統計解析）
+- 開発ログ/予定: `work/dev_log.md` を参照
 
 ## 4. よくあるつまずき
 - `pip install` がSSLエラーになる: Homebrew版の Python 3.12 を使い、もう一度 `pip install -r requirements.txt` を実行。
