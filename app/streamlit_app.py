@@ -98,6 +98,20 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+view = st.sidebar.radio("画面", ["解析", "設定"], index=0)
+
+if "config" not in st.session_state:
+    st.session_state["config"] = {
+        "delimiter": "自動判定",
+        "encoding": "utf-8",
+        "preview_rows": 10,
+        "max_plots": 6,
+        "max_outlier_rows": 100,
+        "impute_numeric": "none",
+        "impute_categorical": "none",
+        "drop_thresh": 1.0,
+    }
+
 st.markdown(
     """
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
@@ -116,19 +130,47 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-uploaded = st.file_uploader("CSV/TSV をアップロード", type=["csv", "tsv"])
-delimiter = st.sidebar.selectbox("区切り文字", ["自動判定", "カンマ(,)", "タブ(\\t)", "セミコロン(;)"], index=0)
-encoding = st.sidebar.selectbox("文字コード", ["utf-8", "shift_jis"], index=0)
-preview_rows = st.sidebar.slider("プレビュー行数", min_value=5, max_value=20, value=10)
-max_plots = st.slider("最大プロット数", min_value=1, max_value=12, value=6)
-max_outlier_rows = st.slider("外れ値サンプル行の上限", min_value=10, max_value=200, value=100, step=10)
-impute_numeric = st.sidebar.selectbox("数値の欠測処理", ["none", "mean", "median"], index=0)
-impute_categorical = st.sidebar.selectbox("カテゴリの欠測処理", ["none", "mode"], index=0)
-drop_thresh = st.sidebar.slider("行を残すための非欠測割合", min_value=0.5, max_value=1.0, value=1.0, step=0.05)
+if view == "設定":
+    st.markdown("### 設定")
+    cfg = st.session_state["config"]
+    with st.form("settings_form"):
+        delimiter = st.selectbox("区切り文字", ["自動判定", "カンマ(,)", "タブ(\\t)", "セミコロン(;)"], index=["自動判定", "カンマ(,)", "タブ(\\t)", "セミコロン(;)"].index(cfg["delimiter"]))
+        encoding = st.selectbox("文字コード", ["utf-8", "shift_jis"], index=["utf-8", "shift_jis"].index(cfg["encoding"]))
+        preview_rows = st.slider("プレビュー行数", min_value=5, max_value=20, value=int(cfg["preview_rows"]))
+        max_plots = st.slider("最大プロット数", min_value=1, max_value=12, value=int(cfg["max_plots"]))
+        max_outlier_rows = st.slider("外れ値サンプル行の上限", min_value=10, max_value=200, value=int(cfg["max_outlier_rows"]), step=10)
+        impute_numeric = st.selectbox("数値の欠測処理", ["none", "mean", "median"], index=["none", "mean", "median"].index(cfg["impute_numeric"]))
+        impute_categorical = st.selectbox("カテゴリの欠測処理", ["none", "mode"], index=["none", "mode"].index(cfg["impute_categorical"]))
+        drop_thresh = st.slider("行を残すための非欠測割合", min_value=0.5, max_value=1.0, value=float(cfg["drop_thresh"]), step=0.05)
+        submitted = st.form_submit_button("保存")
+        if submitted:
+            st.session_state["config"] = {
+                "delimiter": delimiter,
+                "encoding": encoding,
+                "preview_rows": preview_rows,
+                "max_plots": max_plots,
+                "max_outlier_rows": max_outlier_rows,
+                "impute_numeric": impute_numeric,
+                "impute_categorical": impute_categorical,
+                "drop_thresh": drop_thresh,
+            }
+            st.success("設定を保存しました。左のラジオで解析に戻ってください。")
 
-step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
+if view == "解析":
+    cfg = st.session_state["config"]
+    delimiter = cfg["delimiter"]
+    encoding = cfg["encoding"]
+    preview_rows = cfg["preview_rows"]
+    max_plots = cfg["max_plots"]
+    max_outlier_rows = cfg["max_outlier_rows"]
+    impute_numeric = cfg["impute_numeric"]
+    impute_categorical = cfg["impute_categorical"]
+    drop_thresh = cfg["drop_thresh"]
 
-if uploaded:
+    uploaded = st.file_uploader("CSV/TSV をアップロード", type=["csv", "tsv"])
+    step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
+
+    if uploaded:
     if delimiter == "自動判定":
         sep = None
     elif delimiter == "カンマ(,)":
