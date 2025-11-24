@@ -119,12 +119,6 @@ st.markdown(
         <h2 style="margin:0;">医療統計アシスト - 記述統計デモ</h2>
         <div class="pill">モックアップ風UI / CSVアップロードで集計</div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="http://localhost:8504" target="_blank" style="text-decoration:none;" class="pill">Streamlitトップ</a>
-        <a href="../outputs/report.html" target="_blank" style="text-decoration:none;" class="pill">最新レポート</a>
-        <a href="../frontend/index.html" target="_blank" style="text-decoration:none;" class="pill">フロントページ</a>
-        <a href="../work/manual.md" target="_blank" style="text-decoration:none;" class="pill">操作マニュアル</a>
-      </div>
     </div>
     """,
     unsafe_allow_html=True,
