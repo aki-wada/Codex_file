@@ -296,51 +296,38 @@ if view == "解析":
         st.image(str(p))
 
     # HTML report generation for download
-    with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
-        generate_html_report(
-            Path(tmp.name),
-            preview(df),
-            num_summary,
-            cat_summary,
-            miss_df,
-            out_sum,
-            out_rows,
-            grp_num_df,
-            grp_cat_df,
-            eff_df,
-            anova_df,
-            tukey_df,
-            plot_paths,
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
+            generate_html_report(
+                Path(tmp.name),
+                preview(df),
+                num_summary,
+                cat_summary,
+                miss_df,
+                out_sum,
+                out_rows,
+                grp_num_df,
+                grp_cat_df,
+                eff_df,
+                anova_df,
+                tukey_df,
+                plot_paths,
+            )
+            html_bytes = Path(tmp.name).read_bytes()
+            st.download_button("HTMLレポートをダウンロード", data=html_bytes, file_name="report.html", mime="text/html")
+
+        st.sidebar.markdown(
+            f"""
+            <div style="margin-top:16px; color:#e7ecf5;">
+              <div style="font-weight:700; margin-bottom:8px;">進行状況</div>
+              <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
+              <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
+              <div>{step_badge("記述統計/可視化", step_state.get("describe", "pending"))}</div>
+              <div>{step_badge("統計解析/効果量", step_state.get("test", "pending"))}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        html_bytes = Path(tmp.name).read_bytes()
-        st.download_button("HTMLレポートをダウンロード", data=html_bytes, file_name="report.html", mime="text/html")
 
-    st.sidebar.markdown(
-        f"""
-        <div style="margin-top:16px; color:#e7ecf5;">
-          <div style="font-weight:700; margin-bottom:8px;">進行状況</div>
-          <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
-          <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
-          <div>{step_badge("記述統計/可視化", step_state.get("describe", "pending"))}</div>
-          <div>{step_badge("統計解析/効果量", step_state.get("test", "pending"))}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.info("multi-arm trial では全ペアの効果量と ANOVA/Tukey を計算します。2群のみの場合は従来の計算です。")
+        st.info("multi-arm trial では全ペアの効果量と ANOVA/Tukey を計算します。2群のみの場合は従来の計算です。")
     else:
         st.write("CSV/TSV をアップロードしてください。")
-
-st.sidebar.markdown(
-    f"""
-    <div style="margin-top:16px; color:#e7ecf5;">
-      <div style="font-weight:700; margin-bottom:8px;">進行状況</div>
-      <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
-      <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
-      <div>{step_badge("記述統計/可視化", step_state.get("describe", "pending"))}</div>
-      <div>{step_badge("統計解析/効果量", step_state.get("test", "pending"))}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
