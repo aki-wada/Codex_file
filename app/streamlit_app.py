@@ -77,6 +77,10 @@ div.stButton > button {
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
+def step_badge(label: str, state: str) -> str:
+    icon = {"pending": "⬜", "current": "🟦", "done": "✅"}.get(state, "⬜")
+    return f"{icon} {label}"
+
 st.sidebar.markdown(
     """
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -122,6 +126,8 @@ impute_numeric = st.sidebar.selectbox("数値の欠測処理", ["none", "mean", 
 impute_categorical = st.sidebar.selectbox("カテゴリの欠測処理", ["none", "mode"], index=0)
 drop_thresh = st.sidebar.slider("行を残すための非欠測割合", min_value=0.5, max_value=1.0, value=1.0, step=0.05)
 
+step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
+
 if uploaded:
     if delimiter == "自動判定":
         sep = None
@@ -136,6 +142,7 @@ if uploaded:
     except Exception as e:
         st.error(f"読み込みに失敗しました: {e}")
         st.stop()
+    step_state["load"] = "done"
 
     # Preprocess: drop then impute
     df, preproc_info = preprocess_df(
@@ -149,6 +156,7 @@ if uploaded:
         f"impute_numeric={preproc_info.get('imputed_numeric')}, "
         f"impute_categorical={preproc_info.get('imputed_categorical')}"
     )
+    step_state["preprocess"] = "done"
     st.success(f"読み込み完了: {df.shape[0]} 行 x {df.shape[1]} 列")
 
     group_col = st.selectbox("グループ列（効果量/グループ別集計に使用）", options=["(なし)"] + list(df.columns))
@@ -164,6 +172,7 @@ if uploaded:
     num_summary, cat_summary = summarize(df)
     miss_df = missing_summary(df)
     out_sum, out_rows = outlier_summary(df, max_rows=max_outlier_rows)
+    step_state["describe"] = "done"
 
     grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
     if group_col and group_col != "(なし)":
@@ -237,6 +246,8 @@ if uploaded:
     if tukey_df is not None and not tukey_df.empty:
         st.subheader("Tukey HSD")
         st.dataframe(tukey_df, use_container_width=True)
+    if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
+        step_state["test"] = "done"
 
     st.subheader("プロット")
     for p in plot_paths:
@@ -265,3 +276,16 @@ if uploaded:
     st.info("multi-arm trial では全ペアの効果量と ANOVA/Tukey を計算します。2群のみの場合は従来の計算です。")
 else:
     st.write("CSV/TSV をアップロードしてください。")
+
+st.sidebar.markdown(
+    f"""
+    <div style="margin-top:16px; color:#e7ecf5;">
+      <div style="font-weight:700; margin-bottom:8px;">進行状況</div>
+      <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
+      <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
+      <div>{step_badge("記述統計/可視化", step_state.get("describe", "pending"))}</div>
+      <div>{step_badge("統計解析/効果量", step_state.get("test", "pending"))}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
