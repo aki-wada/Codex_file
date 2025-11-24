@@ -21,6 +21,14 @@ python app/main.py <path/to/data.csv> --out-dir outputs
 - 数値列のヒストグラム+ボックスプロットを最大6列までPNGで保存します（`--max-plots` で変更）。
 - `outputs` ディレクトリは自動作成されます。
 
+### サンプルデータ
+
+`data/sample_medical.csv` を同梱しています。試す場合:
+
+```bash
+python app/main.py data/sample_medical.csv --out-dir outputs
+```
+
 ## 次の拡張候補
 
 - 欠測・外れ値検知のレポート化
