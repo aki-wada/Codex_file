@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+.env
+venv/
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.idea/
+.vscode/
