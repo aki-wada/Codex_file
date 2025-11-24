@@ -117,7 +117,6 @@ st.markdown(
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
       <div>
         <h2 style="margin:0;">医療統計アシスト - 記述統計デモ</h2>
-        <div class="pill">モックアップ風UI / CSVアップロードで集計</div>
       </div>
     </div>
     """,
