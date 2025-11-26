@@ -418,7 +418,7 @@ def fisher_tests(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> p
     return pd.DataFrame(res)
 
 
-def normality_tests(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+def normality_tests(df: pd.DataFrame, cols: List[str], alpha: float = 0.05) -> pd.DataFrame:
     """Shapiro-Wilk test for normality on numeric columns."""
     res = []
     for col in cols:
@@ -428,7 +428,8 @@ def normality_tests(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
         if len(series) < 3:
             continue
         stat, p_val = stats.shapiro(series)
-        res.append({"variable": col, "statistic": stat, "p_value": p_val, "test": "Shapiro-Wilk"})
+        decision = "正規 (p>=alpha)" if p_val >= alpha else "非正規 (p<alpha)"
+        res.append({"variable": col, "statistic": stat, "p_value": p_val, "test": "Shapiro-Wilk", "decision": decision})
     return pd.DataFrame(res)
 
 
@@ -896,6 +897,12 @@ def main():
     miss_df.to_csv(miss_path)
     logger.info("Saved missing summary: %s", miss_path)
 
+    normality_df = normality_tests(df, list(df.select_dtypes(include="number").columns), alpha=args.alpha)
+    if normality_df is not None and not normality_df.empty:
+        normality_path = out_dir / "tests_normality.csv"
+        normality_df.to_csv(normality_path, index=False)
+        logger.info("Saved normality tests: %s", normality_path)
+
     outlier_df, outlier_rows = outlier_summary(df, max_rows=args.max_outlier_rows)
     outlier_sum_path = out_dir / "outlier_summary.csv"
     outlier_rows_path = out_dir / "outlier_rows.csv"
@@ -920,6 +927,7 @@ def main():
     mwu_df: Optional[pd.DataFrame] = None
     kw_df: Optional[pd.DataFrame] = None
     fisher_df: Optional[pd.DataFrame] = None
+    normality_df: Optional[pd.DataFrame] = None
 
     if args.group_col:
         try:
@@ -1007,6 +1015,7 @@ def main():
         mwu_df,
         kw_df,
         fisher_df,
+        normality_df,
         alpha=args.alpha,
         meta=meta,
     )
