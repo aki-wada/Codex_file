@@ -30,8 +30,14 @@ pip install -r requirements.txt
 - `group_numeric_summary.csv` / `group_categorical_summary.csv` … 群別サマリー
 - `effect_sizes.csv` … 全ペアの効果量（数値: Cohen's d、2x2カテゴリ: OR）
 - `effect_anova.csv` / `effect_tukey.csv` … 数値列のANOVAとTukey
+- `tests_ttest.csv` / `tests_chi2.csv` … 2群のWelch t検定とカイ二乗検定
 - `<列名>_plot.png` … 数値列のヒストグラム＋箱ひげ
-- `report.html` … 上記をまとめたレポート（プロット埋め込み、欠測/外れ値タブ表示）
+- `report.html` … 上記をまとめたレポート（プロット埋め込み、欠測/外れ値タブ表示、メタ情報）
+
+前処理オプション（CLI）:
+- `--impute-numeric {none,mean,median}` / `--impute-categorical {none,mode}`
+- `--drop-missing-thresh` 非欠測割合の閾値（例: 0.8 で 80%以上埋まっている行のみ残す）
+- 前処理後データは `cleaned.csv`（`--cleaned-csv` で変更可）
 
 ## 3. 画面で使う方法（Streamlit）
 ```bash
@@ -44,6 +50,7 @@ cd /Users/wadaakihiko/Desktop/wada_work/Codex_file
   - 設定: 区切り/文字コード、欠測処理、プレビュー行数、プロット数などを保存
   - 解析: 保存した設定でファイル読み込みと解析を実行
   - 左下に工程進行状況バッジ（読み込み→前処理→記述/可視化→統計解析）
+- 生成したレポートには入力ファイル名・生成日時・設定のメタ情報を表示
 - 開発ログ/予定: `work/dev_log.md` を参照
 
 ## 4. よくあるつまずき
