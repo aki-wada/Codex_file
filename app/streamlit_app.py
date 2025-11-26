@@ -125,6 +125,8 @@ if "config" not in st.session_state:
         "impute_categorical": "none",
         "drop_thresh": 1.0,
     }
+if "last_upload" not in st.session_state:
+    st.session_state["last_upload"] = None
 
 st.markdown(
     """
@@ -175,27 +177,65 @@ if view == "解析":
     drop_thresh = cfg["drop_thresh"]
 
     uploaded = st.file_uploader("CSV/TSV をアップロード", type=["csv", "tsv"])
+    cached = st.session_state.get("last_upload")
+    use_cached = False
+    if cached:
+        st.sidebar.markdown(
+            f"""
+            <div style="margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;">
+              <div style="color:#e7ecf5;font-weight:700;">前回のファイル</div>
+              <div style="color:#9fb3c8;">{cached.get('name','')}</div>
+              <div style="color:#9fb3c8;">sep={cached.get('sep','auto')}, enc={cached.get('encoding','')}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.sidebar.button("前回のアップロードを再利用"):
+            use_cached = True
     step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
     num_summary = cat_summary = miss_df = out_sum = out_rows = None
     grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
     ttest_df = mwu_df = kw_df = chi2_df = fisher_df = normality_df = None
     plot_paths = []
 
-    if uploaded:
-        if delimiter == "自動判定":
-            sep = None
-        elif delimiter == "カンマ(,)":
-            sep = ","
-        elif delimiter == "タブ(\\t)":
-            sep = "\t"
-        else:
-            sep = ";"
-        try:
-            df = pd.read_csv(uploaded, sep=sep, engine="python" if sep is None else "c", encoding=encoding)
-        except Exception as e:
-            st.error(f"読み込みに失敗しました: {e}")
-            st.stop()
-        step_state["load"] = "done"
+    if uploaded or use_cached:
+        if use_cached and cached:
+            cache_path = Path(cached["path"])
+            sep = cached.get("sep", None)
+            encoding = cached.get("encoding", "utf-8")
+            try:
+                df = pd.read_csv(cache_path, sep=sep, engine="python" if sep is None else "c", encoding=encoding)
+            except Exception as e:
+                st.error(f"前回ファイルの読み込みに失敗しました: {e}")
+                st.stop()
+            step_state["load"] = "done"
+        elif uploaded:
+            if delimiter == "自動判定":
+                sep = None
+            elif delimiter == "カンマ(,)":
+                sep = ","
+            elif delimiter == "タブ(\\t)":
+                sep = "\t"
+            else:
+                sep = ";"
+            try:
+                df = pd.read_csv(uploaded, sep=sep, engine="python" if sep is None else "c", encoding=encoding)
+            except Exception as e:
+                st.error(f"読み込みに失敗しました: {e}")
+                st.stop()
+            step_state["load"] = "done"
+
+            # 保存: 前回ファイル情報
+            cache_dir = Path("outputs/upload_cache")
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_path = cache_dir / uploaded.name
+            cache_path.write_bytes(uploaded.getbuffer())
+            st.session_state["last_upload"] = {
+                "path": str(cache_path),
+                "name": uploaded.name,
+                "sep": sep,
+                "encoding": encoding,
+            }
 
         # Preprocess: drop then impute
         df, preproc_info = preprocess_df(
