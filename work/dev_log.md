@@ -5,6 +5,7 @@
 - CLI: 記述統計・欠測/外れ値・効果量（multi-arm）、ANOVA/Tukey、t検定/カイ二乗、HTMLレポート生成
 - HTMLレポート: モックアップ風デザイン、プロット埋め込み、簡易サマリー、タブ式外れ値、メタ情報表示、解釈メモ
 - Streamlit: モックアップ風UI、設定/解析の画面切替、欠測処理オプション、進行状況バッジ、列選択プロット、メタ情報付きレポート生成、解釈メモ
+- 相関（Pearson/Spearman）とノンパラ・多群検定（Mann-Whitney, Kruskal-Wallis, Fisher）をUI/レポートに統合
 - フロントページ: `frontend/index.html` でレポート/Streamlit/マニュアル等のリンク集
 - マニュアル: 初心者向け手順、Streamlit起動手順を整備
 

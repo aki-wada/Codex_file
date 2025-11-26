@@ -31,7 +31,10 @@ pip install -r requirements.txt
 - `effect_sizes.csv` … 全ペアの効果量（数値: Cohen's d、2x2カテゴリ: OR）
 - `effect_anova.csv` / `effect_tukey.csv` … 数値列のANOVAとTukey
 - `tests_ttest.csv` / `tests_chi2.csv` … 2群のWelch t検定とカイ二乗検定
+- `tests_mwu.csv` / `tests_kruskal.csv` / `tests_fisher.csv` … 非正規向け・多群・小標本の検定
+- `corr_pearson.csv` / `corr_spearman.csv` … 相関係数（数値列のみ）
 - `<列名>_plot.png` … 数値列のヒストグラム＋箱ひげ
+- `corr_heatmap.png` … 相関ヒートマップ（Pearson）
 - `report.html` … 上記をまとめたレポート（プロット埋め込み、欠測/外れ値タブ表示、メタ情報）
 
 前処理オプション（CLI）:
@@ -51,6 +54,11 @@ cd /Users/wadaakihiko/Desktop/wada_work/Codex_file
   - 解析: 保存した設定でファイル読み込みと解析を実行
   - 左下に工程進行状況バッジ（読み込み→前処理→記述/可視化→統計解析）
 - 生成したレポートには入力ファイル名・生成日時・設定のメタ情報を表示
+- 相関・検定の見方（解析タブ）
+  - 「検定」タブで t検定 / ANOVA / Tukey / Mann-Whitney / Kruskal / カイ二乗 / Fisher / 正規性検定 / 相関 (Pearson/Spearman) を表形式で確認
+  - 「グラフ」タブで相関ヒートマップ（Altair）とヒストグラム/箱ひげを表示
+  - 「効果量」タブで全ペアのCohen's d / OR と多群のANOVA/Tukeyを確認
+  - 「概要」タブで記述統計と欠測サマリーを確認
 - 開発ログ/予定: `work/dev_log.md` を参照
 
 ## 4. よくあるつまずき

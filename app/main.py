@@ -465,6 +465,18 @@ def normality_tests(df: pd.DataFrame, cols: List[str], alpha: float = 0.05) -> p
     return pd.DataFrame(res)
 
 
+def correlation_matrices(df: pd.DataFrame, cols: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute Pearson/Spearman correlation for numeric columns."""
+    numeric_cols = [c for c in cols if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
+    if not numeric_cols:
+        return pd.DataFrame(), pd.DataFrame()
+    pearson = df[numeric_cols].corr(method="pearson")
+    spearman = df[numeric_cols].corr(method="spearman")
+    pearson.name = "pearson"
+    spearman.name = "spearman"
+    return pearson, spearman
+
+
 def render_table(
     df: Optional[pd.DataFrame],
     title: str,
@@ -512,6 +524,8 @@ def generate_html_report(
     fisher_df: Optional[pd.DataFrame] = None,
     normality_df: Optional[pd.DataFrame] = None,
     median_df: Optional[pd.DataFrame] = None,
+    corr_pearson: Optional[pd.DataFrame] = None,
+    corr_spearman: Optional[pd.DataFrame] = None,
     alpha: float = 0.05,
     meta: Optional[dict] = None,
 ) -> None:
@@ -594,6 +608,8 @@ def generate_html_report(
             lines.append("Kruskal-Wallis: 多群の順位差を検定。必要に応じ事後比較を検討。")
         if fisher_df is not None and not fisher_df.empty:
             lines.append("Fisher exact: 小標本の2x2に適用。ORとpを併せて解釈。")
+        if (corr_pearson is not None and not corr_pearson.empty) or (corr_spearman is not None and not corr_spearman.empty):
+            lines.append("相関: Pearson/Spearman で線形・単調関係を確認。|r|≈0.1/0.3/0.5 が小/中/大の目安。")
         if not lines:
             lines.append("特記事項なし。")
         return "<ul>" + "".join(f"<li>{l}</li>" for l in lines) + "</ul>"
@@ -605,7 +621,7 @@ def generate_html_report(
             adv.append("多群の数値: ANOVA + Tukey。非正規/外れ値が強い場合は Kruskal-Wallis を併用。")
             adv.append("カテゴリ2x2: カイ二乗（期待度数が小さいときは Fisher）。")
             adv.append("カテゴリ多水準: カイ二乗（期待度数を確認）。")
-            adv.append("正規性: Shapiro p<α なら非パラ検定の結果も参考に。")
+            adv.append("正規性: Shapiro-Wilk検定では、p値が5％以上なら正規分布と判断。5％未満なら非パラ検定も参考に。")
         else:
             adv.append("グループ列未指定: グループ比較は無効です。--group-col を指定してください。")
         return "<ul>" + "".join(f"<li>{l}</li>" for l in adv) + "</ul>"
@@ -753,6 +769,8 @@ def generate_html_report(
     {f'<div class="section">{render_table(chi2_df, "カイ二乗検定", highlight_cols=["p_value"] )}</div>' if chi2_df is not None else ""}
     {f'<div class="section">{render_table(normality_df, "正規性検定 (Shapiro-Wilk)", highlight_cols=["p_value"] )}</div>' if normality_df is not None else ""}
     {f'<div class="section">{render_table(median_df, "中央値差（非正規・外れ値対策）")}</div>' if median_df is not None else ""}
+    {f'<div class="section">{render_table(corr_pearson, "相関 (Pearson)")}</div>' if corr_pearson is not None else ""}
+    {f'<div class="section">{render_table(corr_spearman, "相関 (Spearman)")}</div>' if corr_spearman is not None else ""}
   </div>
   <script>
     const tabs = document.querySelectorAll('.tab-buttons button');
@@ -803,6 +821,24 @@ def plot_numeric(
         logger.info("No numeric columns found; skipping plots.")
 
     return output_paths
+
+
+def plot_corr_heatmap(df: pd.DataFrame, output_dir: Path) -> Optional[Path]:
+    """Create correlation heatmap (Pearson) for numeric columns."""
+    numeric_cols = list(df.select_dtypes(include="number").columns)
+    if len(numeric_cols) < 2:
+        logger.info("Not enough numeric columns for correlation heatmap.")
+        return None
+    corr = df[numeric_cols].corr(method="pearson")
+    fig, ax = plt.subplots(figsize=(max(6, len(numeric_cols) * 0.6), max(5, len(numeric_cols) * 0.6)))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", square=True, ax=ax)
+    ax.set_title("Correlation (Pearson)")
+    fig.tight_layout()
+    plot_path = output_dir / "corr_heatmap.png"
+    fig.savefig(plot_path, dpi=150)
+    plt.close(fig)
+    logger.info("Saved correlation heatmap: %s", plot_path)
+    return plot_path
 
 
 def preview(df: pd.DataFrame, rows: int = 5) -> pd.DataFrame:
@@ -925,17 +961,31 @@ def main():
         logger.info("No categorical columns to summarize.")
 
     plot_paths = plot_numeric(df, out_dir, max_plots=args.max_plots)
+    corr_plot = plot_corr_heatmap(df, out_dir)
+    if corr_plot:
+        plot_paths.append(corr_plot)
 
     miss_df = missing_summary(df)
     miss_path = out_dir / "missing_summary.csv"
     miss_df.to_csv(miss_path)
     logger.info("Saved missing summary: %s", miss_path)
 
-    normality_df = normality_tests(df, list(df.select_dtypes(include="number").columns), alpha=args.alpha)
+    numeric_cols = list(df.select_dtypes(include="number").columns)
+    normality_df = normality_tests(df, numeric_cols, alpha=args.alpha)
     if normality_df is not None and not normality_df.empty:
         normality_path = out_dir / "tests_normality.csv"
         normality_df.to_csv(normality_path, index=False)
         logger.info("Saved normality tests: %s", normality_path)
+
+    corr_pearson, corr_spearman = correlation_matrices(df, numeric_cols)
+    if corr_pearson is not None and not corr_pearson.empty:
+        corr_pearson_path = out_dir / "corr_pearson.csv"
+        corr_pearson.to_csv(corr_pearson_path)
+        logger.info("Saved Pearson correlation: %s", corr_pearson_path)
+    if corr_spearman is not None and not corr_spearman.empty:
+        corr_spearman_path = out_dir / "corr_spearman.csv"
+        corr_spearman.to_csv(corr_spearman_path)
+        logger.info("Saved Spearman correlation: %s", corr_spearman_path)
 
     outlier_df, outlier_rows = outlier_summary(df, max_rows=args.max_outlier_rows)
     outlier_sum_path = out_dir / "outlier_summary.csv"
@@ -961,7 +1011,6 @@ def main():
     mwu_df: Optional[pd.DataFrame] = None
     kw_df: Optional[pd.DataFrame] = None
     fisher_df: Optional[pd.DataFrame] = None
-    normality_df: Optional[pd.DataFrame] = None
 
     if args.group_col:
         try:
@@ -1050,6 +1099,9 @@ def main():
         kw_df,
         fisher_df,
         normality_df,
+        None,
+        corr_pearson,
+        corr_spearman,
         alpha=args.alpha,
         meta=meta,
     )

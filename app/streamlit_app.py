@@ -7,22 +7,39 @@ import streamlit as st
 import altair as alt
 
 from main import (
+    correlation_matrices,
     effect_sizes,
     ensure_matplotlib_config,
     ensure_output_dir,
     generate_html_report,
+    fisher_tests,
+    hypothesis_tests_categorical,
+    hypothesis_tests_numeric,
+    kruskal_tests,
     group_summaries,
+    mann_whitney_tests,
     missing_summary,
     normality_tests,
     outlier_summary,
     preprocess_df,
     plot_numeric,
+    plot_corr_heatmap,
     preview,
     summarize,
 )
 
 
 st.set_page_config(page_title="MedStats Assist", layout="wide")
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+VERSION_FILE = BASE_DIR / "VERSION"
+
+
+def get_version() -> str:
+    try:
+        return VERSION_FILE.read_text(encoding="utf-8").strip()
+    except Exception:
+        return "dev"
 
 # Mockup-like styling
 CSS = """
@@ -102,6 +119,22 @@ st.sidebar.markdown(
       <div style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#4ade80,#22d3ee);box-shadow:0 0 12px rgba(34,211,238,0.4);"></div>
       <span style="font-weight:700;color:#e7ecf5;">MedStats Assist</span>
     </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.sidebar.markdown(
+    f"""
+    <div style="display:flex;align-items:center;gap:8px;margin:-6px 0 12px 0;">
+      <span class="pill" style="background:rgba(34,211,238,0.14);border:1px solid rgba(34,211,238,0.35);color:#e7ecf5;">v{get_version()}</span>
+      <span style="color:#9fb3c8;font-size:12px;">session {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}</span>
+    </div>
+    <div style="margin:8px 0 14px 0; color:#e7ecf5; display:flex; flex-direction:column; gap:6px; border:1px solid rgba(34,211,238,0.25); border-radius:10px; padding:10px;">
+      <div style="font-weight:700; margin-bottom:2px;">進行状況</div>
+      <div>{step_badge("データ読み込み", "pending")}</div>
+      <div>{step_badge("前処理", "pending")}</div>
+      <div>{step_badge("記述統計/可視化", "pending")}</div>
+      <div>{step_badge("統計解析/効果量", "pending")}</div>
+    </div>
     <div style="display:flex;flex-direction:column;gap:8px;">
       <a href="../frontend/index.html" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);">ダッシュボード</a>
       <a href="../outputs/report.html" target="_blank" style="color:#e7ecf5;text-decoration:none;padding:10px 12px;border-radius:10px;border:1px solid var(--border);">最新レポート</a>
@@ -135,6 +168,7 @@ st.markdown(
       <div>
         <h2 style="margin:0;">医療統計アシスト - 記述統計デモ</h2>
       </div>
+      <div class="pill">Version {get_version()}</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -197,6 +231,7 @@ if view == "解析":
     num_summary = cat_summary = miss_df = out_sum = out_rows = None
     grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
     ttest_df = mwu_df = kw_df = chi2_df = fisher_df = normality_df = None
+    corr_pearson = corr_spearman = None
     plot_paths = []
 
     if uploaded or use_cached:
@@ -280,15 +315,29 @@ if view == "解析":
         grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
         # Normality test
         normality_df = normality_tests(df, numeric_cols)
+        corr_pearson, corr_spearman = correlation_matrices(df, numeric_cols)
 
         if group_col and group_col != "(なし)":
             grp_num_df, grp_cat_df = group_summaries(df, group_col)
             if effect_cols:
                 eff_df, anova_df, tukey_df = effect_sizes(df, group_col, effect_cols)
+                ttest_df = hypothesis_tests_numeric(df, group_col, effect_cols)
+                mwu_df = mann_whitney_tests(df, group_col, effect_cols)
+                kw_df = kruskal_tests(df, group_col, effect_cols)
+                chi2_df = hypothesis_tests_categorical(df, group_col, effect_cols)
+                fisher_df = fisher_tests(df, group_col, effect_cols)
+        if any(
+            df_obj is not None and not df_obj.empty
+            for df_obj in [eff_df, anova_df, tukey_df, ttest_df, mwu_df, kw_df, chi2_df, fisher_df]
+        ):
+            step_state["test"] = "done"
 
         # Plots (allow selection of numeric columns)
         plot_select = st.multiselect("プロットする数値列を選択", options=numeric_cols, default=numeric_cols[:max_plots])
         plot_paths = plot_numeric(df[numeric_cols], outputs_dir, max_plots=max_plots, selected_cols=plot_select)
+        corr_plot = plot_corr_heatmap(df, outputs_dir)
+        if corr_plot:
+            plot_paths.append(corr_plot)
 
         col1, col2, col3 = st.columns(3)
         col1.markdown(
@@ -336,7 +385,7 @@ if view == "解析":
 
         with tab_tests:
             st.subheader("t検定 / Mann-Whitney / Kruskal / ANOVA / カイ二乗")
-            if ttest_df is not None:
+            if ttest_df is not None and not ttest_df.empty:
                 st.markdown("t検定 (2群, Welch)")
                 st.dataframe(ttest_df, use_container_width=True)
             if anova_df is not None and not anova_df.empty:
@@ -360,6 +409,12 @@ if view == "解析":
             if fisher_df is not None and not fisher_df.empty:
                 st.markdown("Fisher exact (2x2)")
                 st.dataframe(fisher_df, use_container_width=True)
+            if corr_pearson is not None and not corr_pearson.empty:
+                st.markdown("相関 (Pearson)")
+                st.dataframe(corr_pearson, use_container_width=True)
+            if corr_spearman is not None and not corr_spearman.empty:
+                st.markdown("相関 (Spearman)")
+                st.dataframe(corr_spearman, use_container_width=True)
 
         with tab_effect:
             if grp_num_df is not None:
@@ -386,6 +441,22 @@ if view == "解析":
             st.subheader("プロット")
             for p in plot_paths:
                 st.image(str(p))
+            if corr_pearson is not None and not corr_pearson.empty:
+                st.subheader("相関ヒートマップ (Pearson)")
+                # Altair heatmap for interactivity (in addition to PNG)
+                corr_long = corr_pearson.reset_index().melt("index", var_name="var2", value_name="r")
+                heat = (
+                    alt.Chart(corr_long)
+                    .mark_rect()
+                    .encode(
+                        x=alt.X("index:N", title="var1"),
+                        y=alt.Y("var2:N", title="var2"),
+                        color=alt.Color("r:Q", scale=alt.Scale(scheme="redblue", domain=(-1, 1))),
+                        tooltip=["index", "var2", alt.Tooltip("r:Q", format=".2f")],
+                    )
+                    .properties(height=300)
+                )
+                st.altair_chart(heat, use_container_width=True)
             st.subheader("スコア推移（折れ線）")
             time_cols = [c for c in df.columns if c.lower().startswith(("week", "time", "phase")) or "score" in c.lower()]
             id_cols = [c for c in df.columns if c.lower() in ("id", "patient_id", "subject_id")]
@@ -427,6 +498,8 @@ if view == "解析":
             memo.append("p値と効果量を併せて解釈し、実質的な大きさを判断してください。")
         if normality_df is not None and not normality_df.empty:
             memo.append("正規性: Shapiro-Wilk検定では、p値が5％以上なら正規分布と判断。5％未満なら非パラ検定も確認。")
+        if (corr_pearson is not None and not corr_pearson.empty) or (corr_spearman is not None and not corr_spearman.empty):
+            memo.append("相関: Pearson/Spearman で列間の関係を確認。|r|≈0.1/0.3/0.5 が小/中/大の目安。")
         if not memo:
             memo.append("特記事項なし。")
         for line in memo:
@@ -438,6 +511,7 @@ if view == "解析":
             "多群の数値: ANOVA + Tukey。非正規/外れ値が強い場合は Kruskal-Wallis を併用。",
             "カテゴリ2x2: カイ二乗（期待度数が小さいときは Fisher）。",
             "カテゴリ多水準: カイ二乗（期待度数を確認）。",
+            "2変数の関係: 数値同士は Pearson/Spearman の相関係数で強さを確認。",
             "正規性: Shapiro-Wilkでp≥0.05なら正規分布と判断、p<0.05なら非パラ検定も参考に。",
         ]
         for line in adv:
@@ -470,6 +544,15 @@ if view == "解析":
                 anova_df,
                 tukey_df,
                 plot_paths,
+                ttest_df,
+                chi2_df,
+                mwu_df,
+                kw_df,
+                fisher_df,
+                normality_df,
+                None,
+                corr_pearson,
+                corr_spearman,
                 meta=meta,
             )
             html_bytes = Path(tmp.name).read_bytes()
@@ -477,7 +560,7 @@ if view == "解析":
 
         st.sidebar.markdown(
             f"""
-            <div style="margin-top:16px; color:#e7ecf5; display:flex; flex-direction:column; gap:6px;">
+            <div style="margin-top:8px; color:#e7ecf5; display:flex; flex-direction:column; gap:6px; border:1px solid rgba(34,211,238,0.25); border-radius:10px; padding:10px;">
               <div style="font-weight:700; margin-bottom:2px;">進行状況</div>
               <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
               <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
