@@ -12,6 +12,7 @@ from main import (
     generate_html_report,
     group_summaries,
     missing_summary,
+    normality_tests,
     outlier_summary,
     preprocess_df,
     plot_numeric,
