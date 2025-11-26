@@ -166,6 +166,7 @@ if view == "解析":
     step_state = {"load": "pending", "preprocess": "pending", "describe": "pending", "test": "pending"}
     num_summary = cat_summary = miss_df = out_sum = out_rows = None
     grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
+    ttest_df = mwu_df = kw_df = chi2_df = fisher_df = normality_df = None
     plot_paths = []
 
     if uploaded:
@@ -215,6 +216,9 @@ if view == "解析":
         step_state["describe"] = "done"
 
         grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
+        # Normality test
+        normality_df = normality_tests(df, numeric_cols)
+
         if group_col and group_col != "(なし)":
             grp_num_df, grp_cat_df = group_summaries(df, group_col)
             if effect_cols:
@@ -286,6 +290,9 @@ if view == "解析":
             if kw_df is not None and not kw_df.empty:
                 st.markdown("Kruskal-Wallis")
                 st.dataframe(kw_df, use_container_width=True)
+            if normality_df is not None and not normality_df.empty:
+                st.markdown("正規性検定 (Shapiro-Wilk)")
+                st.dataframe(normality_df, use_container_width=True)
             if chi2_df is not None and not chi2_df.empty:
                 st.markdown("カイ二乗検定")
                 st.dataframe(chi2_df, use_container_width=True)
