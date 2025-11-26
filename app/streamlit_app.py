@@ -216,6 +216,7 @@ if view == "解析":
         out_sum, out_rows = outlier_summary(df, max_rows=max_outlier_rows)
         step_state["describe"] = "done"
 
+        numeric_cols = list(df.select_dtypes(include="number").columns)
         grp_num_df = grp_cat_df = eff_df = anova_df = tukey_df = None
         # Normality test
         normality_df = normality_tests(df, numeric_cols)
@@ -226,7 +227,6 @@ if view == "解析":
                 eff_df, anova_df, tukey_df = effect_sizes(df, group_col, effect_cols)
 
         # Plots (allow selection of numeric columns)
-        numeric_cols = list(df.select_dtypes(include="number").columns)
         plot_select = st.multiselect("プロットする数値列を選択", options=numeric_cols, default=numeric_cols[:max_plots])
         plot_paths = plot_numeric(df[numeric_cols], outputs_dir, max_plots=max_plots, selected_cols=plot_select)
 
