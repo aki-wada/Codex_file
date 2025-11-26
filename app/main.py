@@ -564,6 +564,18 @@ def generate_html_report(
             lines.append("特記事項なし。")
         return "<ul>" + "".join(f"<li>{l}</li>" for l in lines) + "</ul>"
 
+    def advice_block() -> str:
+        adv = []
+        if group_num is not None or group_cat is not None:
+            adv.append("2群の数値: Welch t検定 + Cohen's d。非正規/外れ値が強い場合は Mann-Whitney を併用。")
+            adv.append("多群の数値: ANOVA + Tukey。非正規/外れ値が強い場合は Kruskal-Wallis を併用。")
+            adv.append("カテゴリ2x2: カイ二乗（期待度数が小さいときは Fisher）。")
+            adv.append("カテゴリ多水準: カイ二乗（期待度数を確認）。")
+            adv.append("正規性: Shapiro p<α なら非パラ検定の結果も参考に。")
+        else:
+            adv.append("グループ列未指定: グループ比較は無効です。--group-col を指定してください。")
+        return "<ul>" + "".join(f"<li>{l}</li>" for l in adv) + "</ul>"
+
     html = f"""
 <!DOCTYPE html>
 <html lang="ja">
@@ -682,6 +694,11 @@ def generate_html_report(
     <div class="section">
       <h2>解釈メモ</h2>
       {interpretation_block()}
+    </div>
+
+    <div class="section">
+      <h2>手法選択のアドバイス</h2>
+      {advice_block()}
     </div>
 
     <div class="section">{render_table(preview_df.head(10), "データプレビュー (先頭10行)")}</div>
