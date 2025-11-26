@@ -252,8 +252,16 @@ if view == "解析":
         step_state["preprocess"] = "done"
         st.success(f"読み込み完了: {df.shape[0]} 行 x {df.shape[1]} 列")
 
-        group_col = st.selectbox("グループ列（効果量/グループ別集計に使用）", options=["(なし)"] + list(df.columns))
-        effect_cols = st.multiselect("効果量を計算する列（数値: Cohen's d, 2x2カテゴリ: OR）", options=list(df.columns))
+        group_col = st.selectbox(
+            "グループを表す列（介入/対照などのクラス分け列）",
+            options=["(なし)"] + list(df.columns),
+            help="群比較や効果量・検定に使うクラス分けの列名を選択",
+        )
+        effect_cols = st.multiselect(
+            "効果量を出す列（数値: Cohen's d / 2値カテゴリ: OR）",
+            options=list(df.columns),
+            help="比較したい指標を選択。数値列はCohen's d、2値カテゴリはオッズ比を計算",
+        )
 
         with st.expander("データプレビュー"):
             st.dataframe(preview(df, rows=preview_rows), use_container_width=True)
