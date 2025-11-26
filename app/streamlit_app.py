@@ -278,16 +278,29 @@ if view == "解析":
             st.subheader("グループ別 カテゴリサマリー")
             st.dataframe(grp_cat_df, use_container_width=True)
         if eff_df is not None and not eff_df.empty:
-            st.subheader("効果量 (ペアワイズ)")
-            st.dataframe(eff_df, use_container_width=True)
-        if anova_df is not None and not anova_df.empty:
-            st.subheader("ANOVA")
-            st.dataframe(anova_df, use_container_width=True)
-        if tukey_df is not None and not tukey_df.empty:
-            st.subheader("Tukey HSD")
-            st.dataframe(tukey_df, use_container_width=True)
-        if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
-            step_state["test"] = "done"
+        st.subheader("効果量 (ペアワイズ)")
+        st.dataframe(eff_df, use_container_width=True)
+    if anova_df is not None and not anova_df.empty:
+        st.subheader("ANOVA")
+        st.dataframe(anova_df, use_container_width=True)
+    if tukey_df is not None and not tukey_df.empty:
+        st.subheader("Tukey HSD")
+        st.dataframe(tukey_df, use_container_width=True)
+    if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
+        step_state["test"] = "done"
+
+    st.subheader("解釈メモ")
+    memo = []
+    if eff_df is not None and not eff_df.empty:
+        memo.append("効果量: |d|≈0.2小, 0.5中, 0.8大 / OR>1でグループA優位, <1でB優位。")
+    if anova_df is not None and not anova_df.empty or (tukey_df is not None and not tukey_df.empty):
+        memo.append("ANOVA/Tukey: 多群の差を検定し、有意ならTukeyでどの組が異なるか確認。")
+    if eff_df is not None and not eff_df.empty or (anova_df is not None and not anova_df.empty):
+        memo.append("p値と効果量を併せて解釈し、実質的な大きさを判断してください。")
+    if not memo:
+        memo.append("特記事項なし。")
+    for line in memo:
+        st.markdown(f"- {line}")
 
         st.subheader("プロット")
         for p in plot_paths:

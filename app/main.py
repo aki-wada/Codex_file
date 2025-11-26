@@ -425,10 +425,28 @@ def generate_html_report(
             if not sig.empty:
                 vars_sig = ", ".join(sig["variable"].astype(str).tolist())
                 insights.append(f"カイ二乗で有意 (p<{alpha}): {vars_sig}")
+        if eff_df is not None and not eff_df.empty:
+            eff_nonnull = eff_df.dropna(subset=["cohens_d", "odds_ratio"], how="all")
+            if not eff_nonnull.empty:
+                insights.append("効果量あり: 大きさは Cohen's d/OR を参照")
         if not insights:
             insights.append("特記事項なし")
         items = "".join(f"<li>{i}</li>" for i in insights)
         return f"<ul>{items}</ul>"
+
+    def interpretation_block() -> str:
+        lines = []
+        if eff_df is not None and not eff_df.empty:
+            lines.append("効果量の目安: |d|≈0.2小, 0.5中, 0.8大 / OR>1でグループA優位, <1でB優位。")
+        if ttest_df is not None and not ttest_df.empty:
+            lines.append("t検定: p<α なら平均差が統計的に有意（Welch）。CIで差の大きさと向きを確認。")
+        if chi2_df is not None and not chi2_df.empty:
+            lines.append("カイ二乗: p<α なら分布差が有意。期待度数が小さい場合はFisher/U検定を検討。")
+        if anova_df is not None and not anova_df.empty:
+            lines.append("ANOVA/Tukey: 多群で差があるかを検定し、有意ならTukeyでどの組が異なるかを確認。")
+        if not lines:
+            lines.append("特記事項なし。")
+        return "<ul>" + "".join(f"<li>{l}</li>" for l in lines) + "</ul>"
 
     html = f"""
 <!DOCTYPE html>
@@ -543,6 +561,11 @@ def generate_html_report(
     <div class="section">
       <h2>簡易サマリー</h2>
       {insights_block()}
+    </div>
+
+    <div class="section">
+      <h2>解釈メモ</h2>
+      {interpretation_block()}
     </div>
 
     <div class="section">{render_table(preview_df.head(10), "データプレビュー (先頭10行)")}</div>
