@@ -333,6 +333,91 @@ def hypothesis_tests_categorical(df: pd.DataFrame, group_col: str, outcome_cols:
     return pd.DataFrame(res)
 
 
+def mann_whitney_tests(
+    df: pd.DataFrame, group_col: str, outcome_cols: List[str], alpha: float = 0.05
+) -> pd.DataFrame:
+    """Mann–Whitney U test for two groups (numeric)."""
+    groups = [g for g in df[group_col].dropna().unique()]
+    if len(groups) != 2:
+        logger.info("Mann–Whitney needs exactly 2 groups; found %s.", len(groups))
+        return pd.DataFrame()
+    g1, g2 = groups
+    res = []
+    for col in outcome_cols:
+        if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        s1 = df[df[group_col] == g1][col].dropna()
+        s2 = df[df[group_col] == g2][col].dropna()
+        if len(s1) < 1 or len(s2) < 1:
+            continue
+        stat, p_val = stats.mannwhitneyu(s1, s2, alternative="two-sided")
+        res.append(
+            {
+                "variable": col,
+                "group_a": g1,
+                "group_b": g2,
+                "statistic": stat,
+                "p_value": p_val,
+                "test": "Mann-Whitney U",
+            }
+        )
+    return pd.DataFrame(res)
+
+
+def kruskal_tests(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> pd.DataFrame:
+    """Kruskal–Wallis for >=2 groups (numeric)."""
+    groups = [g for g in df[group_col].dropna().unique()]
+    if len(groups) < 2:
+        return pd.DataFrame()
+    res = []
+    for col in outcome_cols:
+        if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        samples = [df[df[group_col] == g][col].dropna() for g in groups]
+        if any(len(s) == 0 for s in samples):
+            continue
+        stat, p_val = stats.kruskal(*samples)
+        res.append(
+            {
+                "variable": col,
+                "groups": len(groups),
+                "statistic": stat,
+                "p_value": p_val,
+                "test": "Kruskal-Wallis",
+            }
+        )
+    return pd.DataFrame(res)
+
+
+def fisher_tests(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> pd.DataFrame:
+    """Fisher exact for 2x2 categorical tables (pairwise when >2 groups)."""
+    groups = [g for g in df[group_col].dropna().unique()]
+    res = []
+    if len(groups) == 2:
+        pairs = [tuple(groups)]
+    else:
+        pairs = list(combinations(groups, 2))
+    for col in outcome_cols:
+        if col not in df.columns or pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        for g1, g2 in pairs:
+            pair_df = df[df[group_col].isin([g1, g2])]
+            tab = pd.crosstab(pair_df[group_col], pair_df[col])
+            if tab.shape == (2, 2):
+                oddsratio, p_val = stats.fisher_exact(tab)
+                res.append(
+                    {
+                        "variable": col,
+                        "group_a": g1,
+                        "group_b": g2,
+                        "odds_ratio": oddsratio,
+                        "p_value": p_val,
+                        "test": "Fisher exact (2x2)",
+                    }
+                )
+    return pd.DataFrame(res)
+
+
 def render_table(
     df: Optional[pd.DataFrame],
     title: str,
@@ -375,6 +460,9 @@ def generate_html_report(
     plot_paths: Optional[List[Path]] = None,
     ttest_df: Optional[pd.DataFrame] = None,
     chi2_df: Optional[pd.DataFrame] = None,
+    mwu_df: Optional[pd.DataFrame] = None,
+    kw_df: Optional[pd.DataFrame] = None,
+    fisher_df: Optional[pd.DataFrame] = None,
     alpha: float = 0.05,
     meta: Optional[dict] = None,
 ) -> None:
@@ -430,6 +518,12 @@ def generate_html_report(
             eff_nonnull = effect_df.dropna(subset=subset_cols, how="all") if subset_cols else effect_df
             if not eff_nonnull.empty:
                 insights.append("効果量あり: 大きさは Cohen's d/OR を参照")
+        if mwu_df is not None and not mwu_df.empty:
+            if not mwu_df[mwu_df["p_value"] < alpha].empty:
+                insights.append("ノンパラ(Mann-Whitney)で有意な項目あり")
+        if kw_df is not None and not kw_df.empty:
+            if not kw_df[kw_df["p_value"] < alpha].empty:
+                insights.append("ノンパラ(Kruskal-Wallis)で有意な項目あり")
         if not insights:
             insights.append("特記事項なし")
         items = "".join(f"<li>{i}</li>" for i in insights)
@@ -445,6 +539,12 @@ def generate_html_report(
             lines.append("カイ二乗: p<α なら分布差が有意。期待度数が小さい場合はFisher/U検定を検討。")
         if anova_df is not None and not anova_df.empty:
             lines.append("ANOVA/Tukey: 多群で差があるかを検定し、有意ならTukeyでどの組が異なるかを確認。")
+        if mwu_df is not None and not mwu_df.empty:
+            lines.append("Mann-Whitney: 2群の順位差を検定。非正規・外れ値に頑健。")
+        if kw_df is not None and not kw_df.empty:
+            lines.append("Kruskal-Wallis: 多群の順位差を検定。必要に応じ事後比較を検討。")
+        if fisher_df is not None and not fisher_df.empty:
+            lines.append("Fisher exact: 小標本の2x2に適用。ORとpを併せて解釈。")
         if not lines:
             lines.append("特記事項なし。")
         return "<ul>" + "".join(f"<li>{l}</li>" for l in lines) + "</ul>"
@@ -581,6 +681,9 @@ def generate_html_report(
     {f'<div class="section">{render_table(anova_df, "ANOVA")}</div>' if anova_df is not None else ""}
     {f'<div class="section">{render_table(tukey_df, "Tukey HSD")}</div>' if tukey_df is not None else ""}
     {f'<div class="section">{render_table(ttest_df, "t検定 (2群)", highlight_cols=["p_value"] )}</div>' if ttest_df is not None else ""}
+    {f'<div class="section">{render_table(mwu_df, "ノンパラ検定 (Mann-Whitney)", highlight_cols=["p_value"] )}</div>' if mwu_df is not None else ""}
+    {f'<div class="section">{render_table(kw_df, "ノンパラ検定 (Kruskal-Wallis)", highlight_cols=["p_value"] )}</div>' if kw_df is not None else ""}
+    {f'<div class="section">{render_table(fisher_df, "Fisher exact (2x2)", highlight_cols=["p_value"] )}</div>' if fisher_df is not None else ""}
     {f'<div class="section">{render_table(chi2_df, "カイ二乗検定", highlight_cols=["p_value"] )}</div>' if chi2_df is not None else ""}
   </div>
   <script>
@@ -781,6 +884,9 @@ def main():
     tukey_df: Optional[pd.DataFrame] = None
     ttest_df: Optional[pd.DataFrame] = None
     chi2_df: Optional[pd.DataFrame] = None
+    mwu_df: Optional[pd.DataFrame] = None
+    kw_df: Optional[pd.DataFrame] = None
+    fisher_df: Optional[pd.DataFrame] = None
 
     if args.group_col:
         try:
@@ -821,6 +927,21 @@ def main():
                     chi2_path = out_dir / "tests_chi2.csv"
                     chi2_df.to_csv(chi2_path, index=False)
                     logger.info("Saved chi-square tests: %s", chi2_path)
+                mwu_df = mann_whitney_tests(df, args.group_col, args.effect_cols, alpha=args.alpha)
+                if mwu_df is not None and not mwu_df.empty:
+                    mwu_path = out_dir / "tests_mwu.csv"
+                    mwu_df.to_csv(mwu_path, index=False)
+                    logger.info("Saved Mann-Whitney tests: %s", mwu_path)
+                kw_df = kruskal_tests(df, args.group_col, args.effect_cols)
+                if kw_df is not None and not kw_df.empty:
+                    kw_path = out_dir / "tests_kruskal.csv"
+                    kw_df.to_csv(kw_path, index=False)
+                    logger.info("Saved Kruskal-Wallis tests: %s", kw_path)
+                fisher_df = fisher_tests(df, args.group_col, args.effect_cols)
+                if fisher_df is not None and not fisher_df.empty:
+                    fisher_path = out_dir / "tests_fisher.csv"
+                    fisher_df.to_csv(fisher_path, index=False)
+                    logger.info("Saved Fisher exact tests: %s", fisher_path)
         except KeyError as e:
             logger.error(str(e))
 
@@ -850,6 +971,9 @@ def main():
         plot_paths,
         ttest_df,
         chi2_df,
+        mwu_df,
+        kw_df,
+        fisher_df,
         alpha=args.alpha,
         meta=meta,
     )
