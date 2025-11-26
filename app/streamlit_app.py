@@ -1,4 +1,5 @@
 import tempfile
+import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -292,6 +293,17 @@ if view == "解析":
         for p in plot_paths:
             st.image(str(p))
 
+        # Metadata for report
+        meta = {
+            "input_file": uploaded.name,
+            "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+            "impute_numeric": impute_numeric,
+            "impute_categorical": impute_categorical,
+            "drop_missing_thresh": drop_thresh,
+            "group_col": group_col or "-",
+            "effect_cols": effect_cols,
+        }
+
         # HTML report generation for download
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
             generate_html_report(
@@ -308,6 +320,7 @@ if view == "解析":
                 anova_df,
                 tukey_df,
                 plot_paths,
+                meta=meta,
             )
             html_bytes = Path(tmp.name).read_bytes()
             st.download_button("HTMLレポートをダウンロード", data=html_bytes, file_name="report.html", mime="text/html")

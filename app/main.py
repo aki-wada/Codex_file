@@ -5,6 +5,7 @@ import os
 from itertools import combinations
 from pathlib import Path
 from typing import List, Optional, Tuple
+import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -375,6 +376,7 @@ def generate_html_report(
     ttest_df: Optional[pd.DataFrame] = None,
     chi2_df: Optional[pd.DataFrame] = None,
     alpha: float = 0.05,
+    meta: Optional[dict] = None,
 ) -> None:
     """Write a simple HTML report with tables."""
     plot_html = ""
@@ -524,6 +526,18 @@ def generate_html_report(
       <div class="card"><div class="spark"></div><small>数値列</small><div style="font-size:24px;font-weight:600;">{len(num_summary)}</div><small>describe()</small></div>
       <div class="card"><div class="spark"></div><small>カテゴリ列</small><div style="font-size:24px;font-weight:600;">{len(cat_summary)}</div><small>頻度・ユニーク数</small></div>
       <div class="card"><div class="spark"></div><small>総欠測</small><div style="font-size:24px;font-weight:600;">{miss_df['missing_count'].sum() if not miss_df.empty else 0}</div><small>missing_count 合計</small></div>
+    </div>
+
+    <div class="section">
+      <h2>メタ情報</h2>
+      <div class="grid">
+        <div class="card"><small>入力ファイル</small><div class="metric">{(meta or {}).get('input_file','-')}</div></div>
+        <div class="card"><small>生成日時</small><div class="metric">{(meta or {}).get('generated_at','-')}</div></div>
+        <div class="card"><small>欠測処理</small><div class="metric">num: {(meta or {}).get('impute_numeric','-')} / cat: {(meta or {}).get('impute_categorical','-')}</div></div>
+        <div class="card"><small>非欠測割合</small><div class="metric">{(meta or {}).get('drop_missing_thresh','-')}</div></div>
+        <div class="card"><small>グループ列</small><div class="metric">{(meta or {}).get('group_col','-')}</div></div>
+        <div class="card"><small>効果量対象</small><div class="metric">{", ".join((meta or {}).get('effect_cols', [])) if (meta or {}).get('effect_cols') else "-"}</div></div>
+      </div>
     </div>
 
     <div class="section">
@@ -787,6 +801,15 @@ def main():
             logger.error(str(e))
 
     report_path = args.html_report or (out_dir / "report.html")
+    meta = {
+        "input_file": str(args.csv_path),
+        "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "impute_numeric": args.impute_numeric,
+        "impute_categorical": args.impute_categorical,
+        "drop_missing_thresh": args.drop_missing_thresh,
+        "group_col": args.group_col or "-",
+        "effect_cols": args.effect_cols or [],
+    }
     generate_html_report(
         report_path,
         preview(df),
@@ -804,6 +827,7 @@ def main():
         ttest_df,
         chi2_df,
         alpha=args.alpha,
+        meta=meta,
     )
 
     logger.info("Done. Outputs written to %s", out_dir.resolve())
