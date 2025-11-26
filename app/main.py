@@ -418,6 +418,20 @@ def fisher_tests(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> p
     return pd.DataFrame(res)
 
 
+def normality_tests(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+    """Shapiro-Wilk test for normality on numeric columns."""
+    res = []
+    for col in cols:
+        if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        series = df[col].dropna()
+        if len(series) < 3:
+            continue
+        stat, p_val = stats.shapiro(series)
+        res.append({"variable": col, "statistic": stat, "p_value": p_val, "test": "Shapiro-Wilk"})
+    return pd.DataFrame(res)
+
+
 def render_table(
     df: Optional[pd.DataFrame],
     title: str,
@@ -463,6 +477,7 @@ def generate_html_report(
     mwu_df: Optional[pd.DataFrame] = None,
     kw_df: Optional[pd.DataFrame] = None,
     fisher_df: Optional[pd.DataFrame] = None,
+    normality_df: Optional[pd.DataFrame] = None,
     alpha: float = 0.05,
     meta: Optional[dict] = None,
 ) -> None:
@@ -685,6 +700,7 @@ def generate_html_report(
     {f'<div class="section">{render_table(kw_df, "ノンパラ検定 (Kruskal-Wallis)", highlight_cols=["p_value"] )}</div>' if kw_df is not None else ""}
     {f'<div class="section">{render_table(fisher_df, "Fisher exact (2x2)", highlight_cols=["p_value"] )}</div>' if fisher_df is not None else ""}
     {f'<div class="section">{render_table(chi2_df, "カイ二乗検定", highlight_cols=["p_value"] )}</div>' if chi2_df is not None else ""}
+    {f'<div class="section">{render_table(normality_df, "正規性検定 (Shapiro-Wilk)", highlight_cols=["p_value"] )}</div>' if normality_df is not None else ""}
   </div>
   <script>
     const tabs = document.querySelectorAll('.tab-buttons button');
