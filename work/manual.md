@@ -1,15 +1,33 @@
 # 操作マニュアル（初心者向け）
 
-## 1. 事前準備（最初だけ）
+## 1. 画面で使う（最も簡単）
+```bash
+cd /Users/wadaakihiko/Desktop/wada_work/Codex_file
+./.venv/bin/streamlit run app/streamlit_app.py
+```
+ブラウザで http://localhost:8504 を開き、CSV/TSV をアップロードするだけで表・グラフ・効果量を確認し、HTMLレポートもダウンロードできます。
+
+- サイドバーで「設定」「解析」を切替
+  - 設定: 区切り/文字コード、欠測処理、プレビュー行数、プロット数などを保存
+  - 解析: 保存した設定で読み込み→前処理→記述統計→検定を実行
+  - 上部にバージョン、進行状況バッジ（読み込み→前処理→記述/可視化→統計解析）
+- 解析タブの見方
+  - 「検定」: t検定 / ANOVA / Tukey / Mann-Whitney / Kruskal / カイ二乗 / Fisher / 正規性 / 相関 (Pearson/Spearman)
+  - 「グラフ」: 相関ヒートマップ（Altair）とヒストグラム・箱ひげ
+  - 「効果量」: 全ペアのCohen's d / OR、多群のANOVA/Tukey
+  - 「概要」: 記述統計と欠測サマリー
+- レポート: 入力ファイル名・生成日時・設定のメタ情報付き。HTMLをダウンロード可能。
+
+## 2. 事前準備（初回のみ）
 ```bash
 cd /Users/wadaakihiko/Desktop/wada_work/Codex_file
 /Users/wadaakihiko/homebrew/bin/python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
-※ 警告が出ても基本はそのままでOK。消したいときは `MPLCONFIGDIR=./outputs/.mplconfig` を環境変数に設定。
+※ 警告は基本無視でOK。消したい場合は `MPLCONFIGDIR=./outputs/.mplconfig` を設定。
 
-## 2. コマンドで使う方法（CSVを解析）
+## 3. コマンドで使う（バッチ処理向け）
 サンプルデータで試す例:
 ```bash
 ./.venv/bin/python app/main.py data/clinical_trial_data.csv \
@@ -19,47 +37,28 @@ pip install -r requirements.txt
   --html-report outputs/report.html
 ```
 ポイント:
-- `--group-col` に群を示す列名を入れると群別の表を出力。
-- `--effect-cols` に効果量を出したい列名を並べると、全ペアの効果量・ANOVA・Tukeyを計算（3群以上もOK）。
-- `report.html` が作られるのでブラウザで開けば表とグラフをまとめて確認できます。
+- `--group-col` に群の列名を入れると群別の表を出力。
+- `--effect-cols` に効果量を出したい列を並べると、全ペアの効果量・ANOVA・Tukeyを計算（3群以上もOK）。
+- `report.html` をブラウザで開けば表とグラフをまとめて確認。
 
 主な出力（`outputs` 内）:
-- `summary_numeric.csv` / `summary_categorical.csv` … 全体の記述統計
+- `summary_numeric.csv` / `summary_categorical.csv` … 記述統計
 - `missing_summary.csv` … 欠測数・率
 - `outlier_summary.csv` / `outlier_rows.csv` … 外れ値サマリー/サンプル
 - `group_numeric_summary.csv` / `group_categorical_summary.csv` … 群別サマリー
-- `effect_sizes.csv` … 全ペアの効果量（数値: Cohen's d、2x2カテゴリ: OR）
-- `effect_anova.csv` / `effect_tukey.csv` … 数値列のANOVAとTukey
-- `tests_ttest.csv` / `tests_chi2.csv` … 2群のWelch t検定とカイ二乗検定
-- `tests_mwu.csv` / `tests_kruskal.csv` / `tests_fisher.csv` … 非正規向け・多群・小標本の検定
-- `corr_pearson.csv` / `corr_spearman.csv` … 相関係数（数値列のみ）
-- `<列名>_plot.png` … 数値列のヒストグラム＋箱ひげ
-- `corr_heatmap.png` … 相関ヒートマップ（Pearson）
-- `report.html` … 上記をまとめたレポート（プロット埋め込み、欠測/外れ値タブ表示、メタ情報）
+- `effect_sizes.csv` … 効果量（数値: Cohen's d、2x2カテゴリ: OR）
+- `effect_anova.csv` / `effect_tukey.csv` … ANOVAとTukey
+- `tests_ttest.csv` / `tests_chi2.csv` … Welch t検定とカイ二乗
+- `tests_mwu.csv` / `tests_kruskal.csv` / `tests_fisher.csv` … 非正規・多群・小標本の検定
+- `corr_pearson.csv` / `corr_spearman.csv` … 相関係数
+- `<列名>_plot.png` … ヒストグラム＋箱ひげ
+- `corr_heatmap.png` … 相関ヒートマップ
+- `report.html` … すべてをまとめたレポート
 
 前処理オプション（CLI）:
 - `--impute-numeric {none,mean,median}` / `--impute-categorical {none,mode}`
 - `--drop-missing-thresh` 非欠測割合の閾値（例: 0.8 で 80%以上埋まっている行のみ残す）
 - 前処理後データは `cleaned.csv`（`--cleaned-csv` で変更可）
-
-## 3. 画面で使う方法（Streamlit）
-```bash
-cd /Users/wadaakihiko/Desktop/wada_work/Codex_file
-./.venv/bin/streamlit run app/streamlit_app.py
-```
-ブラウザで http://localhost:8504 を開き、CSV/TSV をアップロードするだけで表・グラフ・効果量を確認し、HTMLレポートもダウンロードできます。
-
-- サイドバーのラジオで「設定」「解析」を切替
-  - 設定: 区切り/文字コード、欠測処理、プレビュー行数、プロット数などを保存
-  - 解析: 保存した設定でファイル読み込みと解析を実行
-  - 左下に工程進行状況バッジ（読み込み→前処理→記述/可視化→統計解析）
-- 生成したレポートには入力ファイル名・生成日時・設定のメタ情報を表示
-- 相関・検定の見方（解析タブ）
-  - 「検定」タブで t検定 / ANOVA / Tukey / Mann-Whitney / Kruskal / カイ二乗 / Fisher / 正規性検定 / 相関 (Pearson/Spearman) を表形式で確認
-  - 「グラフ」タブで相関ヒートマップ（Altair）とヒストグラム/箱ひげを表示
-  - 「効果量」タブで全ペアのCohen's d / OR と多群のANOVA/Tukeyを確認
-  - 「概要」タブで記述統計と欠測サマリーを確認
-- 開発ログ/予定: `work/dev_log.md` を参照
 
 ## 4. よくあるつまずき
 - `pip install` がSSLエラーになる: Homebrew版の Python 3.12 を使い、もう一度 `pip install -r requirements.txt` を実行。
