@@ -395,7 +395,7 @@ if view == "解析":
         if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
             memo.append("p値と効果量を併せて解釈し、実質的な大きさを判断してください。")
         if normality_df is not None and not normality_df.empty:
-            memo.append("正規性: Shapiro p<α なら非パラ検定も参考に。")
+            memo.append("正規性: Shapiro-Wilk検定では、p値が5％以上なら正規分布と判断。5％未満なら非パラ検定も確認。")
         if not memo:
             memo.append("特記事項なし。")
         for line in memo:
@@ -407,7 +407,7 @@ if view == "解析":
             "多群の数値: ANOVA + Tukey。非正規/外れ値が強い場合は Kruskal-Wallis を併用。",
             "カテゴリ2x2: カイ二乗（期待度数が小さいときは Fisher）。",
             "カテゴリ多水準: カイ二乗（期待度数を確認）。",
-            "正規性: Shapiro p<α なら非パラ検定の結果も参考に。",
+            "正規性: Shapiro-Wilkでp≥0.05なら正規分布と判断、p<0.05なら非パラ検定も参考に。",
         ]
         for line in adv:
             st.markdown(f"- {line}")
