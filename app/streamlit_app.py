@@ -327,6 +327,32 @@ if view == "解析":
             for p in plot_paths:
                 st.image(str(p))
 
+        st.subheader("解釈メモ")
+        memo = []
+        if eff_df is not None and not eff_df.empty:
+            memo.append("効果量: |d|≈0.2小, 0.5中, 0.8大 / OR>1でグループA優位, <1でB優位。")
+        if (anova_df is not None and not anova_df.empty) or (tukey_df is not None and not tukey_df.empty):
+            memo.append("ANOVA/Tukey: 多群の差を検定し、有意ならTukeyでどの組が異なるか確認。")
+        if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
+            memo.append("p値と効果量を併せて解釈し、実質的な大きさを判断してください。")
+        if normality_df is not None and not normality_df.empty:
+            memo.append("正規性: Shapiro p<α なら非パラ検定も参考に。")
+        if not memo:
+            memo.append("特記事項なし。")
+        for line in memo:
+            st.markdown(f"- {line}")
+
+        st.subheader("手法選択のアドバイス")
+        adv = [
+            "2群の数値: Welch t検定 + Cohen's d。非正規/外れ値が強い場合は Mann-Whitney を併用。",
+            "多群の数値: ANOVA + Tukey。非正規/外れ値が強い場合は Kruskal-Wallis を併用。",
+            "カテゴリ2x2: カイ二乗（期待度数が小さいときは Fisher）。",
+            "カテゴリ多水準: カイ二乗（期待度数を確認）。",
+            "正規性: Shapiro p<α なら非パラ検定の結果も参考に。",
+        ]
+        for line in adv:
+            st.markdown(f"- {line}")
+
         # Metadata for report
         meta = {
             "input_file": uploaded.name,
