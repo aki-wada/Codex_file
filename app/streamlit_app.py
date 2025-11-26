@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import altair as alt
 
 from main import (
     effect_sizes,
@@ -385,6 +386,36 @@ if view == "解析":
             st.subheader("プロット")
             for p in plot_paths:
                 st.image(str(p))
+            st.subheader("スコア推移（折れ線）")
+            time_cols = [c for c in df.columns if c.lower().startswith(("week", "time", "phase")) or "score" in c.lower()]
+            id_cols = [c for c in df.columns if c.lower() in ("id", "patient_id", "subject_id")]
+            id_col = st.selectbox("ID列（任意: 線を分ける）", options=["(なし)"] + id_cols)
+            selected_times = st.multiselect(
+                "時相の列を選択（例: baseline_score, week4_score, week8_score）",
+                options=time_cols,
+                default=time_cols,
+            )
+            if selected_times:
+                id_vars = [id_col] if id_col and id_col != "(なし)" else []
+                try:
+                    long_df = (
+                        df.melt(id_vars=id_vars, value_vars=selected_times, var_name="time", value_name="score")
+                        .dropna(subset=["score"])
+                    )
+                    if not long_df.empty:
+                        color_enc = id_col if id_vars else alt.value("#22d3ee")
+                        tooltip = [id_col] + ["time", "score"] if id_vars else ["time", "score"]
+                        chart = (
+                            alt.Chart(long_df)
+                            .mark_line(point=True)
+                            .encode(x="time:N", y="score:Q", color=color_enc, tooltip=tooltip)
+                            .properties(height=300)
+                        )
+                        st.altair_chart(chart, use_container_width=True)
+                    else:
+                        st.info("折れ線に描画できるデータがありません。")
+                except Exception as e:
+                    st.error(f"折れ線グラフの生成に失敗しました: {e}")
 
         st.subheader("解釈メモ")
         memo = []
