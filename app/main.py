@@ -425,8 +425,9 @@ def generate_html_report(
             if not sig.empty:
                 vars_sig = ", ".join(sig["variable"].astype(str).tolist())
                 insights.append(f"カイ二乗で有意 (p<{alpha}): {vars_sig}")
-        if eff_df is not None and not eff_df.empty:
-            eff_nonnull = eff_df.dropna(subset=["cohens_d", "odds_ratio"], how="all")
+        if effect_df is not None and not effect_df.empty:
+            subset_cols = [c for c in ["cohens_d", "odds_ratio"] if c in effect_df.columns]
+            eff_nonnull = effect_df.dropna(subset=subset_cols, how="all") if subset_cols else effect_df
             if not eff_nonnull.empty:
                 insights.append("効果量あり: 大きさは Cohen's d/OR を参照")
         if not insights:
@@ -436,7 +437,7 @@ def generate_html_report(
 
     def interpretation_block() -> str:
         lines = []
-        if eff_df is not None and not eff_df.empty:
+        if effect_df is not None and not effect_df.empty:
             lines.append("効果量の目安: |d|≈0.2小, 0.5中, 0.8大 / OR>1でグループA優位, <1でB優位。")
         if ttest_df is not None and not ttest_df.empty:
             lines.append("t検定: p<α なら平均差が統計的に有意（Welch）。CIで差の大きさと向きを確認。")
