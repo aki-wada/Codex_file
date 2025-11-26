@@ -76,13 +76,24 @@ div.stButton > button {
   background: radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.18), transparent 45%);
   pointer-events: none;
 }
+.step-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  color: #0a1525;
+  margin-bottom: 6px;
+}
+.step-pending { background: #cbd5e1; border: 1px solid #94a3b8; }
+.step-current { background: #22d3ee; border: 1px solid #0ea5e9; }
+.step-done { background: #4ade80; border: 1px solid #22c55e; }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
 def step_badge(label: str, state: str) -> str:
-    icon = {"pending": "⬜", "current": "🟦", "done": "✅"}.get(state, "⬜")
-    return f"{icon} {label}"
+    cls = {"pending": "step-pending", "current": "step-current", "done": "step-done"}.get(state, "step-pending")
+    return f'<span class="step-badge {cls}">{label}</span>'
 
 st.sidebar.markdown(
     """
@@ -387,8 +398,8 @@ if view == "解析":
 
         st.sidebar.markdown(
             f"""
-            <div style="margin-top:16px; color:#e7ecf5;">
-              <div style="font-weight:700; margin-bottom:8px;">進行状況</div>
+            <div style="margin-top:16px; color:#e7ecf5; display:flex; flex-direction:column; gap:6px;">
+              <div style="font-weight:700; margin-bottom:2px;">進行状況</div>
               <div>{step_badge("データ読み込み", step_state.get("load", "pending"))}</div>
               <div>{step_badge("前処理", step_state.get("preprocess", "pending"))}</div>
               <div>{step_badge("記述統計/可視化", step_state.get("describe", "pending"))}</div>
