@@ -257,54 +257,67 @@ if view == "解析":
             unsafe_allow_html=True,
         )
 
-        st.subheader("数値列サマリー")
-        st.dataframe(num_summary, use_container_width=True)
+        tab_overview, tab_tests, tab_effect, tab_outlier, tab_plots = st.tabs(
+            ["概要", "検定", "効果量", "欠測/外れ値", "グラフ"]
+        )
 
-        st.subheader("カテゴリ列サマリー")
-        st.dataframe(cat_summary, use_container_width=True)
+        with tab_overview:
+            st.subheader("数値列サマリー")
+            st.dataframe(num_summary, use_container_width=True)
+            st.subheader("カテゴリ列サマリー")
+            st.dataframe(cat_summary, use_container_width=True)
+            st.subheader("欠測サマリー")
+            st.dataframe(miss_df, use_container_width=True)
 
-        st.subheader("欠測サマリー")
-        st.dataframe(miss_df, use_container_width=True)
+        with tab_tests:
+            st.subheader("t検定 / Mann-Whitney / Kruskal / ANOVA / カイ二乗")
+            if ttest_df is not None:
+                st.markdown("t検定 (2群, Welch)")
+                st.dataframe(ttest_df, use_container_width=True)
+            if anova_df is not None and not anova_df.empty:
+                st.markdown("ANOVA")
+                st.dataframe(anova_df, use_container_width=True)
+            if tukey_df is not None and not tukey_df.empty:
+                st.markdown("Tukey HSD")
+                st.dataframe(tukey_df, use_container_width=True)
+            if mwu_df is not None and not mwu_df.empty:
+                st.markdown("Mann-Whitney U")
+                st.dataframe(mwu_df, use_container_width=True)
+            if kw_df is not None and not kw_df.empty:
+                st.markdown("Kruskal-Wallis")
+                st.dataframe(kw_df, use_container_width=True)
+            if chi2_df is not None and not chi2_df.empty:
+                st.markdown("カイ二乗検定")
+                st.dataframe(chi2_df, use_container_width=True)
+            if fisher_df is not None and not fisher_df.empty:
+                st.markdown("Fisher exact (2x2)")
+                st.dataframe(fisher_df, use_container_width=True)
 
-        st.subheader("外れ値サマリー")
-        st.dataframe(out_sum, use_container_width=True)
-        st.subheader("外れ値サンプル行")
-        st.dataframe(out_rows.head(max_outlier_rows), use_container_width=True)
+        with tab_effect:
+            if grp_num_df is not None:
+                st.subheader("グループ別 数値サマリー")
+                st.dataframe(grp_num_df, use_container_width=True)
+            if grp_cat_df is not None:
+                st.subheader("グループ別 カテゴリサマリー")
+                st.dataframe(grp_cat_df, use_container_width=True)
+            if eff_df is not None and not eff_df.empty:
+                st.subheader("効果量 (ペアワイズ)")
+                st.dataframe(eff_df, use_container_width=True)
+            if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
+                step_state["test"] = "done"
 
-        if grp_num_df is not None:
-            st.subheader("グループ別 数値サマリー")
-            st.dataframe(grp_num_df, use_container_width=True)
-        if grp_cat_df is not None:
-            st.subheader("グループ別 カテゴリサマリー")
-            st.dataframe(grp_cat_df, use_container_width=True)
-        if eff_df is not None and not eff_df.empty:
-            st.subheader("効果量 (ペアワイズ)")
-            st.dataframe(eff_df, use_container_width=True)
-        if anova_df is not None and not anova_df.empty:
-            st.subheader("ANOVA")
-            st.dataframe(anova_df, use_container_width=True)
-        if tukey_df is not None and not tukey_df.empty:
-            st.subheader("Tukey HSD")
-            st.dataframe(tukey_df, use_container_width=True)
-        if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
-            step_state["test"] = "done"
+        with tab_outlier:
+            st.subheader("欠測サマリー")
+            st.dataframe(miss_df, use_container_width=True)
+            st.subheader("外れ値サマリー")
+            st.dataframe(out_sum, use_container_width=True)
+            st.subheader("外れ値サンプル行")
+            st.dataframe(out_rows.head(max_outlier_rows), use_container_width=True)
 
-        st.subheader("解釈メモ")
-        memo = []
-        if eff_df is not None and not eff_df.empty:
-            memo.append("効果量: |d|≈0.2小, 0.5中, 0.8大 / OR>1でグループA優位, <1でB優位。")
-        if (anova_df is not None and not anova_df.empty) or (tukey_df is not None and not tukey_df.empty):
-            memo.append("ANOVA/Tukey: 多群の差を検定し、有意ならTukeyでどの組が異なるか確認。")
-        if (eff_df is not None and not eff_df.empty) or (anova_df is not None and not anova_df.empty):
-            memo.append("p値と効果量を併せて解釈し、実質的な大きさを判断してください。")
-        if not memo:
-            memo.append("特記事項なし。")
-        for line in memo:
-            st.markdown(f"- {line}")
-
-        st.subheader("プロット")
-        for p in plot_paths:
-            st.image(str(p))
+        with tab_plots:
+            st.subheader("プロット")
+            for p in plot_paths:
+                st.image(str(p))
 
         # Metadata for report
         meta = {
