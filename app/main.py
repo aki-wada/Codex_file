@@ -418,6 +418,38 @@ def fisher_tests(df: pd.DataFrame, group_col: str, outcome_cols: List[str]) -> p
     return pd.DataFrame(res)
 
 
+def median_diff_two_group(df: pd.DataFrame, group_col: str, cols: List[str]) -> pd.DataFrame:
+    """MedianとIQR、中央値差（2群のみ）を出力。"""
+    groups = [g for g in df[group_col].dropna().unique()]
+    if len(groups) != 2:
+        return pd.DataFrame()
+    g1, g2 = groups
+    records = []
+    for col in cols:
+        if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        s1 = df[df[group_col] == g1][col].dropna()
+        s2 = df[df[group_col] == g2][col].dropna()
+        if len(s1) == 0 or len(s2) == 0:
+            continue
+        med1, med2 = s1.median(), s2.median()
+        iqr1 = s1.quantile(0.75) - s1.quantile(0.25)
+        iqr2 = s2.quantile(0.75) - s2.quantile(0.25)
+        records.append(
+            {
+                "variable": col,
+                "group_a": g1,
+                "group_b": g2,
+                "median_a": med1,
+                "median_b": med2,
+                "median_diff": med1 - med2,
+                "iqr_a": iqr1,
+                "iqr_b": iqr2,
+            }
+        )
+    return pd.DataFrame(records)
+
+
 def normality_tests(df: pd.DataFrame, cols: List[str], alpha: float = 0.05) -> pd.DataFrame:
     """Shapiro-Wilk test for normality on numeric columns."""
     res = []
@@ -479,6 +511,7 @@ def generate_html_report(
     kw_df: Optional[pd.DataFrame] = None,
     fisher_df: Optional[pd.DataFrame] = None,
     normality_df: Optional[pd.DataFrame] = None,
+    median_df: Optional[pd.DataFrame] = None,
     alpha: float = 0.05,
     meta: Optional[dict] = None,
 ) -> None:
@@ -719,6 +752,7 @@ def generate_html_report(
     {f'<div class="section">{render_table(fisher_df, "Fisher exact (2x2)", highlight_cols=["p_value"] )}</div>' if fisher_df is not None else ""}
     {f'<div class="section">{render_table(chi2_df, "カイ二乗検定", highlight_cols=["p_value"] )}</div>' if chi2_df is not None else ""}
     {f'<div class="section">{render_table(normality_df, "正規性検定 (Shapiro-Wilk)", highlight_cols=["p_value"] )}</div>' if normality_df is not None else ""}
+    {f'<div class="section">{render_table(median_df, "中央値差（非正規・外れ値対策）")}</div>' if median_df is not None else ""}
   </div>
   <script>
     const tabs = document.querySelectorAll('.tab-buttons button');
